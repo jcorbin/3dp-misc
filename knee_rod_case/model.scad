@@ -41,7 +41,7 @@ module rod_case(rod_count, finger_at = 0) {
   diff("pocket") cuboid(
       [
         2 * padding[0] + pocket_width * rod_count +
-            finger_size / 2 * (2 * rod_count - 1) +
+            finger_size / 2 * max(2, (2 * rod_count - 1)) +
             padding[0] * (rod_count - 1),
         2 * padding[1] + pocket_length,
         padding[2] + pocket_depth,
