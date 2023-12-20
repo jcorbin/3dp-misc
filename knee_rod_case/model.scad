@@ -5,7 +5,7 @@ $fa = 4;
 $fs = 0.2;
 
 rod_diameter = 16;
-rod_cap_length = 5;
+rod_cap_length = 6;
 rod_metal_length = 202;
 rod_length = rod_metal_length + 2 * rod_cap_length;
 rod_rounding = 1;
@@ -22,7 +22,7 @@ rod_count = fit_test ? 1 : 2;
 
 tolerance = 0.4;
 rounding = 2;
-padding = [ 4, 4, 4 ];
+padding = [ 2, 2, 2 ];
 
 pocket_width = rod_diameter + 2 * tolerance;
 pocket_length = rod_length + 2 * tolerance;
@@ -33,11 +33,13 @@ finger_depth = pocket_depth;
 finger_offset = finger_size * 2 / 3;
 finger_at = fit_test ? pocket_length / 2 - finger_size / 2 - 30 : 0;
 
-spacing = 2 * padding[0] + finger_size / 2;
+spacing = padding[0] + finger_size / 2;
 
 diff("pocket") cuboid(
     [
-      2 * padding[0] + (pocket_width + spacing) * rod_count,
+      2 * padding[0] + pocket_width * rod_count +
+          finger_size / 2 * (2 * rod_count - 1) +
+          padding[0] * (rod_count - 1),
       2 * padding[1] + pocket_length,
       padding[2] + pocket_depth,
     ],
