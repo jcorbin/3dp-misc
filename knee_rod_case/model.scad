@@ -27,33 +27,50 @@ pocket_length = rod_length + 2 * tolerance;
 pocket_depth = 2 * rod_diameter / 3 + tolerance;
 
 if (fit_test) {
-  rod_case(rod_count = 1, finger_at = pocket_length / 2 - finger_size / 2 - 30);
+  length = finger_size / 2 + 30;
+  diff(remove = "cut")
+      rod_case(rod_count = 1, finger_at = pocket_length / 2 - length) {
+    tag("cut") attach(FRONT, BACK, overlap = $case_size[1] - length) cube([
+      $case_size[0] + 2 * $eps,
+      $case_size[1] + 2 * $eps,
+      $case_size[2] + 2 * $eps,
+    ]);
+  };
 } else {
   rod_case(rod_count = 2);
 }
 
-module rod_case(rod_count, finger_at = 0) {
+module rod_case(rod_count, finger_at = 0, anchor = CENTER, spin = 0,
+                orient = UP) {
   finger_depth = pocket_depth;
   finger_offset = finger_size * 2 / 3;
 
   spacing = padding[0] + finger_size / 2;
 
-  diff("pocket") cuboid(
-      [
-        2 * padding[0] + pocket_width * rod_count +
-            finger_size / 2 * max(2, (2 * rod_count - 1)) +
-            padding[0] * (rod_count - 1),
-        2 * padding[1] + pocket_length,
-        padding[2] + pocket_depth,
-      ],
-      rounding = rounding, except_edges = TOP) {
+  $case_size = [
+    2 * padding[0] + pocket_width * rod_count +
+        finger_size / 2 * max(2, (2 * rod_count - 1)) +
+        padding[0] * (rod_count - 1),
+    2 * padding[1] + pocket_length,
+    padding[2] + pocket_depth,
+  ];
 
-    tag("pocket") xcopies(spacing = pocket_width + spacing, n = rod_count) {
-      attach(TOP, FRONT, overlap = pocket_depth) rod(tol = tolerance);
-      back(finger_at) back(($idx % 2 == 0 ? 1 : -1) * finger_offset)
-          attach(TOP, BOTTOM, overlap = finger_depth) cuboid(
-              [ finger_size + pocket_width, finger_size, finger_depth + $eps ],
-              rounding = finger_depth / 2, except_edges = TOP);
-    };
-  };
+  $finger_size = [
+    finger_size + pocket_width,
+    finger_size,
+    finger_depth + $eps,
+  ];
+
+  attachable(size = $case_size, anchor = anchor, spin = spin, orient = orient) {
+    tag_scope("rod_case") diff("pocket")
+        cuboid($case_size, rounding = rounding, except_edges = TOP) {
+      tag("pocket") xcopies(spacing = pocket_width + spacing, n = rod_count) {
+        attach(TOP, FRONT, overlap = pocket_depth) rod(tol = tolerance);
+        back(finger_at) back(($idx % 2 == 0 ? 1 : -1) * finger_offset)
+            attach(TOP, BOTTOM, overlap = finger_depth) cuboid(
+                $finger_size, rounding = finger_depth / 2, except_edges = TOP);
+      };
+    }
+    children();
+  }
 }
