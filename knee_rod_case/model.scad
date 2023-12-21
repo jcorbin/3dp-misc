@@ -8,7 +8,7 @@ $fs = 0.2;
 
 /// mode
 
-fit_test = false;
+fit_test = true;
 minimal = true;
 
 /// settings
@@ -18,8 +18,10 @@ rod_cap_length = 6;
 rod_metal_length = 202;
 rod_rounding = 1;
 
+slot_depth = 0.55;
+
 case_tol = 0.4;
-cover_tol = 0.2;
+cover_tol = 0.4;
 
 case_rounding = 2;
 case_padding = [ 2, 2, 2 ];
@@ -35,7 +37,7 @@ rod_length = rod_metal_length + 2 * rod_cap_length;
 
 pocket_width = rod_diameter + 2 * case_tol;
 pocket_length = rod_length + 2 * case_tol;
-pocket_depth = 2 * rod_diameter / 3 + case_tol;
+pocket_depth = rod_diameter * slot_depth + case_tol;
 
 finger_depth = pocket_depth;
 finger_offset = finger_size * 2 / 3;
@@ -121,6 +123,7 @@ module rod_case_cover(rod_count = 2, tol = 0, finger_at = 0,
 
   $case_size = rod_case_size(2, true, case_padding);
   $cover_size = rod_cover_size(padding, tol);
+  slide_size = $case_size + [ 2 * tol, 2 * (padding[1] + tol + $eps), 2 * tol ];
 
   spacing = rod_case_spacing(case_padding, true);
 
@@ -129,11 +132,12 @@ module rod_case_cover(rod_count = 2, tol = 0, finger_at = 0,
     tag_scope("rod_case_cover") diff("slide")
         cuboid($cover_size, rounding = rounding) {
       tag("slide") attach(BOTTOM, BOTTOM, norot = true, overlap = $eps)
-          cuboid($case_size + [ 0, 2 * ( padding[1] +  $eps ), 0 ], rounding = case_rounding,
-                 edges = BOTTOM) {
-        xcopies(spacing = pocket_width + spacing,
-                n = 2) attach(TOP, FRONT, overlap = pocket_depth)
-            rod(tol = case_tol, extra = 2 * (case_padding[1] + padding[1] + $eps), rounding = 0);
+          cuboid(slide_size, rounding = case_rounding, edges = BOTTOM) {
+        xcopies(spacing = pocket_width + spacing, n = 2)
+            attach(TOP, FRONT, overlap = pocket_depth)
+                rod(tol = case_tol,
+                    extra = 2 * (case_padding[1] + padding[1] + $eps),
+                    rounding = 0);
       };
     }
 
