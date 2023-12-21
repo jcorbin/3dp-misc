@@ -30,21 +30,13 @@ size = [
   lift + foot[1],
 ];
 
-diff("span") cuboid(size, rounding = rounding, except_edges = BOTTOM) {
+diff("span") cuboid(size, rounding = rounding, edges = "X", except_edges = BOTTOM) {
 
   tag("span") attach(TOP, TOP, overlap = grip[1])
       cube([ size[0] + 2 * $eps, span + 2 * tolerance, grip[1] + $eps ]);
 
   tag("foot") attach(BOTTOM, BOTTOM, norot = true)
       cuboid([ size[0], span + grip[0] + foot[0], foot[1] ],
-             rounding = rounding, except_edges = BOTTOM) {
+             rounding = rounding, edges = "X", except_edges = BOTTOM);
 
-    /* TODO would be nice to chamfer that corner
-    ycopies(spacing = [ -size[1] / 2, size[1] / 2 ])
-    up(foot[1]/2)
-    xrot(45)
-    cuboid([ size[0] - 2* rounding, 2*rounding, 2*rounding ]);
-    */
-
-  };
 };
