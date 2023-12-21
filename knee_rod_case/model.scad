@@ -8,7 +8,7 @@ $fs = 0.2;
 
 /// mode
 
-fit_test = true;
+fit_test = false;
 minimal = true;
 
 /// settings
@@ -21,7 +21,7 @@ rod_rounding = 1;
 slot_depth = 0.55;
 
 case_tol = 0.4;
-cover_tol = 0.2;
+cover_tol = 0.1;
 
 case_rounding = 2;
 case_padding = [ 2, 2, 2 ];
