@@ -8,7 +8,7 @@ $fs = 0.2;
 
 /// mode
 
-fit_test = true;
+fit_test = false;
 
 /// settings
 
@@ -16,7 +16,7 @@ tolerance = 0.2;
 
 span = 148;
 lift = 77;
-width = 200;
+width = 600 / 3 - 6;
 grip = [ 5, 10 ];
 foot = [ 50, 20 ];
 
@@ -30,6 +30,8 @@ size = [
   lift + foot[1],
 ];
 
+zrot(90)
+yrot(90)
 diff("span") cuboid(size, rounding = rounding, edges = "X", except_edges = BOTTOM) {
 
   tag("span") attach(TOP, TOP, overlap = grip[1])
