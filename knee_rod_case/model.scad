@@ -9,7 +9,7 @@ $fs = 0.2;
 /// mode
 
 fit_test = false;
-minimal = true;
+slide_case = true;
 
 /// settings
 
@@ -23,11 +23,13 @@ slot_depth = 0.55;
 case_tol = 0.4;
 cover_tol = 0.1;
 
+case_chamfer = true;
 case_rounding = 2;
 case_padding = [ 2, 2, 2 ];
 
-cover_rounding = 2.5;
-cover_padding = [ 2.5, 2.5, 2.5 ];
+cover_chamfer = true;
+cover_rounding = 2;
+cover_padding = [ 4, 4, 3 ];
 
 finger_size = 20;
 
@@ -48,7 +50,7 @@ module rod(rounding = rod_rounding, tol = 0, extra = 0) {
       rounding = rounding > 0 ? rounding + tol : 0);
 }
 
-if (minimal) {
+if (slide_case) {
   xrot(180) diff("cut")
       case_pair(padding = cover_padding, case_padding = case_padding,
                 rounding = cover_rounding, case_rounding = case_rounding) {
@@ -64,7 +66,9 @@ if (minimal) {
           cube(cut_size, center = true);
     }
   }
-} else {
+}
+
+else {
   if (fit_test) {
     length = finger_size / 2 + 30;
     diff("cut")
@@ -118,8 +122,8 @@ function rod_cover_size(padding, tol,
 
 module rod_case_cover(rod_count = 2, tol = 0, finger_at = 0,
                       padding = [ 2, 2, 2 ], case_padding = [ 2, 2, 2 ],
-                      rounding = 2, case_rounding = 2, anchor = CENTER,
-                      spin = 0, orient = UP) {
+                      rounding = 2, case_rounding = 2,
+                      anchor = CENTER, spin = 0, orient = UP) {
 
   $case_size = rod_case_size(2, true, case_padding);
   $cover_size = rod_cover_size(padding, tol);
@@ -130,9 +134,11 @@ module rod_case_cover(rod_count = 2, tol = 0, finger_at = 0,
   attachable(size = $cover_size, anchor = anchor, spin = spin,
              orient = orient) {
     tag_scope("rod_case_cover") diff("slide")
-        cuboid($cover_size, rounding = rounding) {
+        cuboid($cover_size, rounding = cover_chamfer ? 0 : rounding,
+               chamfer = cover_chamfer ? rounding : 0) {
       tag("slide") attach(BOTTOM, BOTTOM, norot = true, overlap = $eps)
-          cuboid(slide_size, rounding = case_rounding, edges = BOTTOM) {
+          cuboid(slide_size, rounding = case_chamfer ? 0 : case_rounding,
+                 chamfer = case_chamfer ? rounding : 0, edges = BOTTOM) {
         xcopies(spacing = pocket_width + spacing, n = 2)
             attach(TOP, FRONT, overlap = pocket_depth)
                 rod(tol = case_tol,
@@ -170,7 +176,8 @@ module rod_case(rod_count, minimize = false, finger_at = 0,
 
   attachable(size = $case_size, anchor = anchor, spin = spin, orient = orient) {
     tag_scope("rod_case") diff("pocket")
-        cuboid($case_size, rounding = rounding, except_edges = TOP) {
+        cuboid($case_size, rounding = case_chamfer ? 0 : rounding,
+               chamfer = case_chamfer ? rounding : 0, except_edges = TOP) {
       tag("pocket")
           xcopies(spacing = pocket_width + rod_case_spacing(padding, minimize),
                   n = rod_count) {
