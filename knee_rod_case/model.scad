@@ -1,18 +1,20 @@
 include <../BOSL2/std.scad>
 
-/// mode
+/* [Mode] */
 
 // Enable to generate a minimal fit-test model, rather than a full case
 fit_test = false;
 
-// Enable to generate a minimal case with a slide cover, or disable to generate
-// a simpler/wider tray with finger pockets.
+// Enable to generate a minimal case with a slide cover, or disable to generate a simpler/wider tray with finger pockets.
 slide_case = true;
-
-/// settings
 
 // How many rods to fit in the case
 rod_count = 2; // [2:2:64]
+
+/* [Rod and Finger Metrics] */
+
+// Expected size of user fingers (mm). When generating just a tray (not slide case mode), this alsow controls additonal width padding before/between/after each rod slot.
+finger_size = 20;
 
 // Diamter of the rod's aluminium amin body (mm)
 rod_diameter = 16;
@@ -26,49 +28,51 @@ rod_cap_length = 6;
 // Radius of the rod's plastic endcap rounding (mm)
 rod_rounding = 1;
 
-// Expected size of user fingers (mm).
-// When generating just a tray (not slide case mode), this alsow controls
-// additonal width padding before/between/after each rod slot.
-finger_size = 20;
+/* [Case Metrics] */
 
-// Depth of the rod slot as a percentage of rod diameter.
-// A deeper slot will cause the rods to pop/stick in, but anything pas 60-70%
-// can be too tight of a fit for insertion.
+// Depth of the rod slot as a percentage of rod diameter. A deeper slot will cause the rods to pop/stick in, but anything pas 60-70% can be too tight of a fit for insertion.
 slot_depth = 55; // [10:1:90]
 
 // Tolerance to allow where the case meets the rod
 case_tol = 0.4; // 0.1
 
-// Tolerance to allow where the slide cover meets the case
-cover_tol = 0.1; // 0.1
-
 // Fillet rounding radius for the case
 case_rounding = 2;
-
-// Fillet rounding radius for the slide cover
-cover_rounding = 2;
 
 // XYZ padding for the case
 case_padding = [ 2, 2, 2 ];
 
-// XYZ padding for the slide cover
-cover_padding = [ 4, 3, 2 ];
-
 // Enable to use a flat chamfer on the case, instead of curved roudning
 case_chamfer = false;
+
+/* [Slide Cover Metrics] */
+
+// Tolerance to allow where the slide cover meets the case
+cover_tol = 0.1; // 0.1
+
+// Fillet rounding radius for the slide cover
+cover_rounding = 2;
+
+// XYZ padding for the slide cover
+cover_padding = [ 4, 3, 2 ];
 
 // Enable to use a flat chamfer on the slide cover, instead of curved roudning
 cover_chamfer = false;
 
-/// geometry config
+/* [Geometry Detail] */
 
-module __customizer_limit__() {}
+// Fragment minimum angle
+$fa = 4; // 1
 
+// Fragment minimum size
+$fs = 0.2; // 0.05
+
+// Epsilon adjustement value for cutouts
 $eps = 0.1;
-$fa = 4;
-$fs = 0.2;
 
 /// implementation
+
+module __customizer_limit__() {}
 
 rod_length = rod_metal_length + 2 * rod_cap_length;
 
