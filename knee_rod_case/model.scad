@@ -23,11 +23,11 @@ slot_depth = 0.55;
 case_tol = 0.4;
 cover_tol = 0.1;
 
-case_chamfer = true;
+case_chamfer = false;
 case_rounding = 2;
 case_padding = [ 2, 2, 2 ];
 
-cover_chamfer = true;
+cover_chamfer = false;
 cover_rounding = 2;
 cover_padding = [ 4, 4, 3 ];
 
