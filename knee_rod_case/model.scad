@@ -1,37 +1,72 @@
 include <../BOSL2/std.scad>
 
-/// geometry config
-
-$eps = 0.1;
-$fa = 4;
-$fs = 0.2;
-
 /// mode
 
+// Enable to generate a minimal fit-test model, rather than a full case
 fit_test = false;
+
+// Enable to generate a minimal case with a slide cover, or disable to generate
+// a simpler/wider tray with finger pockets.
 slide_case = true;
 
 /// settings
 
+// How many rods to fit in the case
+rod_count = 2; // [2:2:64]
+
+// Diamter of the rod's aluminium amin body (mm)
 rod_diameter = 16;
-rod_cap_length = 6;
+
+// Length of the rod's aluminium main body (mm)
 rod_metal_length = 202;
+
+// Length of the rod's plastic cap (mm)
+rod_cap_length = 6;
+
+// Radius of the rod's plastic endcap rounding (mm)
 rod_rounding = 1;
 
-slot_depth = 0.55;
+// Expected size of user fingers (mm).
+// When generating just a tray (not slide case mode), this alsow controls
+// additonal width padding before/between/after each rod slot.
+finger_size = 20;
 
-case_tol = 0.4;
-cover_tol = 0.1;
+// Depth of the rod slot as a percentage of rod diameter.
+// A deeper slot will cause the rods to pop/stick in, but anything pas 60-70%
+// can be too tight of a fit for insertion.
+slot_depth = 55; // [10:1:90]
 
-case_chamfer = false;
+// Tolerance to allow where the case meets the rod
+case_tol = 0.4; // 0.1
+
+// Tolerance to allow where the slide cover meets the case
+cover_tol = 0.1; // 0.1
+
+// Fillet rounding radius for the case
 case_rounding = 2;
+
+// Fillet rounding radius for the slide cover
+cover_rounding = 2;
+
+// XYZ padding for the case
 case_padding = [ 2, 2, 2 ];
 
-cover_chamfer = false;
-cover_rounding = 2;
-cover_padding = [ 4, 4, 3 ];
+// XYZ padding for the slide cover
+cover_padding = [ 4, 3, 2 ];
 
-finger_size = 20;
+// Enable to use a flat chamfer on the case, instead of curved roudning
+case_chamfer = false;
+
+// Enable to use a flat chamfer on the slide cover, instead of curved roudning
+cover_chamfer = false;
+
+/// geometry config
+
+module __customizer_limit__() {}
+
+$eps = 0.1;
+$fa = 4;
+$fs = 0.2;
 
 /// implementation
 
@@ -39,7 +74,7 @@ rod_length = rod_metal_length + 2 * rod_cap_length;
 
 pocket_width = rod_diameter + 2 * case_tol;
 pocket_length = rod_length + 2 * case_tol;
-pocket_depth = rod_diameter * slot_depth + case_tol;
+pocket_depth = rod_diameter * slot_depth / 100 + case_tol;
 
 finger_depth = pocket_depth;
 finger_offset = finger_size * 2 / 3;
@@ -52,8 +87,9 @@ module rod(rounding = rod_rounding, tol = 0, extra = 0) {
 
 if (slide_case) {
   xrot(180) diff("cut")
-      case_pair(padding = cover_padding, case_padding = case_padding,
-                rounding = cover_rounding, case_rounding = case_rounding) {
+      case_pair(rod_count = rod_count, padding = cover_padding,
+                case_padding = case_padding, rounding = cover_rounding,
+                case_rounding = case_rounding) {
     if (fit_test) {
       cut_size = [
         $case_size[0] + $cover_size[0] + 10 + 2 * $eps,
@@ -71,8 +107,8 @@ if (slide_case) {
 else {
   if (fit_test) {
     length = finger_size / 2 + 30;
-    diff("cut")
-        rod_case(rod_count = 1, finger_at = pocket_length / 2 - length) {
+    diff("cut") rod_case(rod_count = rod_count,
+                         finger_at = pocket_length / 2 - length) {
       tag("cut") attach(FRONT, BACK, overlap = $case_size[1] - length) cube([
         $case_size[0] + 2 * $eps,
         $case_size[1] + 2 * $eps,
@@ -80,15 +116,16 @@ else {
       ]);
     };
   } else {
-    rod_case(rod_count = 2, padding = case_padding, rounding = case_rounding);
+    rod_case(rod_count = rod_count, padding = case_padding,
+             rounding = case_rounding);
   }
 }
 
-module case_pair(case_padding, padding, case_rounding, rounding,
+module case_pair(case_padding, padding, case_rounding, rounding, rod_count = 2,
                  anchor = CENTER, spin = 0, orient = UP) {
 
-  $case_size = rod_case_size(2, true, case_padding);
-  $cover_size = rod_cover_size(padding, cover_tol);
+  $case_size = rod_case_size(rod_count, true, case_padding);
+  $cover_size = rod_cover_size(rod_count, padding, cover_tol);
 
   attachable(
       size =
@@ -98,22 +135,23 @@ module case_pair(case_padding, padding, case_rounding, rounding,
       anchor = anchor, spin = spin, orient = orient) {
 
     right($case_size[0] / 2) right(5)
-        rod_case_cover(rod_count = 2, tol = cover_tol, padding = padding,
-                       case_padding = case_padding, rounding = rounding,
-                       case_rounding = case_rounding) {
+        rod_case_cover(rod_count = rod_count, tol = cover_tol,
+                       padding = padding, case_padding = case_padding,
+                       rounding = rounding, case_rounding = case_rounding) {
 
       xrot(180) down(($cover_size - $case_size)[2] / 2)
           attach(LEFT, RIGHT, overlap = -10)
-              rod_case(rod_count = 2, minimize = true, padding = case_padding,
-                       rounding = case_rounding);
+              rod_case(rod_count = rod_count, minimize = true,
+                       padding = case_padding, rounding = case_rounding);
     };
 
     children();
   }
 }
 
-function rod_cover_size(padding, tol,
-                        $case_size = rod_case_size(2, true, case_padding)) =
+function rod_cover_size(rod_count, padding, tol,
+                        $case_size = rod_case_size(rod_count, true,
+                                                   case_padding)) =
     [
       $case_size[0] + 2 * (padding[0] + tol),
       $case_size[1] + 2 * tol,
@@ -122,11 +160,11 @@ function rod_cover_size(padding, tol,
 
 module rod_case_cover(rod_count = 2, tol = 0, finger_at = 0,
                       padding = [ 2, 2, 2 ], case_padding = [ 2, 2, 2 ],
-                      rounding = 2, case_rounding = 2,
-                      anchor = CENTER, spin = 0, orient = UP) {
+                      rounding = 2, case_rounding = 2, anchor = CENTER,
+                      spin = 0, orient = UP) {
 
-  $case_size = rod_case_size(2, true, case_padding);
-  $cover_size = rod_cover_size(padding, tol);
+  $case_size = rod_case_size(rod_count, true, case_padding);
+  $cover_size = rod_cover_size(rod_count, padding, tol);
   slide_size = $case_size + [ 2 * tol, 2 * (padding[1] + tol + $eps), 2 * tol ];
 
   spacing = rod_case_spacing(case_padding, true);
@@ -139,7 +177,7 @@ module rod_case_cover(rod_count = 2, tol = 0, finger_at = 0,
       tag("slide") attach(BOTTOM, BOTTOM, norot = true, overlap = $eps)
           cuboid(slide_size, rounding = case_chamfer ? 0 : case_rounding,
                  chamfer = case_chamfer ? rounding : 0, edges = BOTTOM) {
-        xcopies(spacing = pocket_width + spacing, n = 2)
+        xcopies(spacing = pocket_width + spacing, n = rod_count)
             attach(TOP, FRONT, overlap = pocket_depth)
                 rod(tol = case_tol,
                     extra = 2 * (case_padding[1] + padding[1] + $eps),
@@ -162,7 +200,7 @@ function rod_case_size(rod_count, minimize, padding) = [
   padding[2] + pocket_depth,
 ];
 
-module rod_case(rod_count, minimize = false, finger_at = 0,
+module rod_case(rod_count = 2, minimize = false, finger_at = 0,
                 padding = [ 2, 2, 2 ], rounding = 2, anchor = CENTER, spin = 0,
                 orient = UP) {
 
