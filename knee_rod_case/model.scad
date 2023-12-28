@@ -220,15 +220,19 @@ module rod_case(rod_count = 2, minimize = false, finger_at = 0,
           xcopies(spacing = pocket_width + rod_case_spacing(padding, minimize),
                   n = rod_count) {
         attach(TOP, FRONT, overlap = pocket_depth) rod(tol = case_tol);
-        back(finger_at)
-            back(($idx % 2 == 0 ? 1 : -1) * finger_offset) if (minimize) {
-          left(($idx % 2 == 0 ? 1 : -1) * cut_size[0] /
-               2) attach(TOP, BOTTOM, overlap = finger_depth)
-              cuboid(cut_size, rounding = finger_rounding, except_edges = TOP);
+
+        if (minimize) {
+          back(finger_at) back((($idx % 2) == (floor($idx / 2) % 2) ? 1 : -1) *
+                               finger_offset)
+              left(($idx % 2 == 0 ? 1 : -1) * cut_size[0] / 2)
+                  attach(TOP, BOTTOM, overlap = finger_depth) cuboid(
+                      cut_size, rounding = finger_rounding, except_edges = TOP);
         }
+
         else {
-          attach(TOP, BOTTOM, overlap = finger_depth)
-              cuboid(cut_size, rounding = finger_rounding, except_edges = TOP);
+          back(finger_at) back((($idx % 2) == 0 ? 1 : -1) * finger_offset)
+              attach(TOP, BOTTOM, overlap = finger_depth) cuboid(
+                  cut_size, rounding = finger_rounding, except_edges = TOP);
         }
       };
     }
