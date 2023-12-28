@@ -53,8 +53,8 @@ cover_tol = 0.1; // 0.1
 // Fillet rounding radius for the slide cover
 cover_rounding = 2;
 
-// XYZ padding for the slide cover
-cover_padding = [ 4, 3, 2 ];
+// XZ padding for the slide cover
+cover_padding = [ 2.5, 2.5 ];
 
 // Enable to use a flat chamfer on the slide cover, instead of curved roudning
 cover_chamfer = false;
@@ -159,17 +159,17 @@ function rod_cover_size(rod_count, padding, tol,
     [
       $case_size[0] + 2 * (padding[0] + tol),
       $case_size[1] + 2 * tol,
-      rod_diameter + 2 * (padding[2] + case_tol),
+      rod_diameter + 2 * (padding[1] + case_tol),
     ];
 
 module rod_case_cover(rod_count = 2, tol = 0, finger_at = 0,
-                      padding = [ 2, 2, 2 ], case_padding = [ 2, 2, 2 ],
+                      padding = [ 2, 2 ], case_padding = [ 2, 2, 2 ],
                       rounding = 2, case_rounding = 2, anchor = CENTER,
                       spin = 0, orient = UP) {
 
   $case_size = rod_case_size(rod_count, true, case_padding);
   $cover_size = rod_cover_size(rod_count, padding, tol);
-  slide_size = $case_size + [ 2 * tol, 2 * (padding[1] + tol + $eps), 2 * tol ];
+  slide_size = $case_size + [ 2 * tol, 2 * (tol + $eps), 2 * tol ];
 
   spacing = rod_case_spacing(case_padding, true);
 
@@ -184,7 +184,7 @@ module rod_case_cover(rod_count = 2, tol = 0, finger_at = 0,
         xcopies(spacing = pocket_width + spacing, n = rod_count)
             attach(TOP, FRONT, overlap = pocket_depth)
                 rod(tol = case_tol,
-                    extra = 2 * (case_padding[1] + padding[1] + $eps),
+                    extra = 2 * (case_padding[1] + 2*$eps),
                     rounding = 0);
       };
     }
