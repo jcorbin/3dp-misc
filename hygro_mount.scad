@@ -13,7 +13,7 @@ hygro_padding = [ 2, 2, 2 ];
 
 /* [Case Metrics] */
 
-case_size = [ 130, 40, 20 ];
+case_size = [ 120, 38, 20 ];
 
 case_chamfer = 5;
 
@@ -24,7 +24,7 @@ mount_hole_at = 50;
 /* [Geometry Detail] */
 
 // Hole tolerance.
-hole_tol = 0.2;
+hole_tol = 0.4;
 
 // Fragment minimum angle
 $fa = 4; // 1
@@ -57,8 +57,8 @@ module case_mount(anchor = CENTER, spin = 0, orient = UP) {
       tag("mount")
         attach(TOP, BOTTOM, overlap = $eps + $parent_size[2])
         cuboid(size = [
-          hygro_size[0] + hole_tol,
-          hygro_size[1] + hole_tol,
+          hygro_size[0] + 2*hole_tol,
+          hygro_size[1] + 2*hole_tol,
           $eps + $parent_size[2] + $eps
         ], rounding = hygro_rounding + hole_tol);
 
@@ -66,7 +66,7 @@ module case_mount(anchor = CENTER, spin = 0, orient = UP) {
       tag("mount")
         xcopies(spacing=mount_hole_spacing)
         attach(BOTTOM, TOP, overlap = mount_hole[1])
-          cyl(l = mount_hole[1] + $eps, d = mount_hole[0] + hole_tol);
+          cyl(l = mount_hole[1] + $eps, d = mount_hole[0] + 2*hole_tol);
 
     };
 
@@ -77,9 +77,9 @@ module case_mount(anchor = CENTER, spin = 0, orient = UP) {
 }
 
 function case_size() = [
-  max(case_size[0], hygro_size[0] + hole_tol + hygro_padding[0] + case_chamfer),
-  max(case_size[1], hygro_size[1] + hole_tol + hygro_padding[1] + case_chamfer),
-  max(case_size[2], hygro_size[2] + hole_tol + hygro_padding[2]),
+  max(case_size[0], hygro_size[0] + 2*hole_tol + hygro_padding[0] + case_chamfer),
+  max(case_size[1], hygro_size[1] + 2*hole_tol + hygro_padding[1] + case_chamfer),
+  max(case_size[2], hygro_size[2] + 2*hole_tol + hygro_padding[2]),
 ];
 
 module case (anchor = CENTER, spin = 0, orient = UP) {
