@@ -1,5 +1,9 @@
 include <BOSL2/std.scad>
 
+/* [Mode] */
+
+mode = 2;
+
 /* [Held Item Metrics] */
 
 item_size = [ 200, 200, 4 ];
@@ -21,7 +25,7 @@ case_padding = [ 2.5, 2.5, 2 ];
 /* [Slide Cover Metrics] */
 
 // Tolerance to allow where the slide cover meets the case
-cover_tol = 0.1; // 0.1
+cover_tol = 0.2; // 0.1
 
 // Fillet rounding radius for the slide cover
 cover_rounding = 2;
@@ -42,13 +46,20 @@ $eps = 0.1;
 
 /// implementation
 
-left(case_size()[0]/2 + 5)
-up(case_size()[2]/2)
-  case();
-
-right(cover_size()[0]/2 + 5)
-up(cover_size()[2]/2)
-  cover();
+if (mode == 1) {
+  up(case_size()[2]/2)
+    case();
+} else if (mode == 2) {
+  up(cover_size()[2]/2)
+    cover();
+} else if (mode == 3) {
+  left(case_size()[0]/2 + 5)
+  up(case_size()[2]/2)
+    case();
+  right(cover_size()[0]/2 + 5)
+  up(cover_size()[2]/2)
+    cover();
+}
 
 function payload_size() = item_size + [
   2 * case_tol,
