@@ -16,6 +16,8 @@
 // You should have received a copy of the  GNU General Public License  along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
+include <BOSL2/std.scad>
+
 //@make -o ring_sizer/us_3.stl -p ring_sizer.json -P us_3
 //@make -o ring_sizer/us_3_5.stl -p ring_sizer.json -P us_3_5
 //@make -o ring_sizer/us_4.stl -p ring_sizer.json -P us_4
@@ -48,7 +50,9 @@ label_text_size = 4;
 /* [Body Parameters] */
 
 wall_width = 3;
-thickness = 4;
+thickness = 5;
+ring_chamfer = 1;
+hole_d = 5;
 
 /* [Geometry Detail] */
 
@@ -64,18 +68,39 @@ $eps = 0.01;
 base_od = ring_id + 2 * wall_width;
 
 tab_thickness = thickness * 0.6;
+tab_chamfer = thickness * 0.15;
 
 module base() {   
   hull() {
     circle(d=base_od);
-    translate([base_od,0,0]) circle(d=base_od/2);
+    right(base_od) circle(d=base_od/2);
+  }
+}
+
+module hole(d, h, chamfer=0) {
+  if (chamfer > 0) {
+    attachable(d = d, h = h) {
+      cyl(h = h - 2*chamfer + 2*$eps, d = d, center = true) {
+        attach(BOTTOM, TOP, overlap=$eps)
+          cyl(h = chamfer + $eps, d1 = d + 2*chamfer, d2 = d, center = true);
+        attach(TOP, BOTTOM, overlap=$eps)
+          cyl(h = chamfer + $eps, d1 = d, d2 = d + 2*chamfer, center = true);
+      }
+
+      children();
+    }
+  }
+
+  else {
+    cyl(h = h, d = d, center = true) children();
   }
 }
 
 module body() {
   union() {
     linear_extrude(height = tab_thickness) base();
-    linear_extrude(height = thickness) circle(d=base_od);
+    up(thickness/2)
+      cyl(d = base_od, h = thickness, chamfer2 = ring_chamfer);
   }
 }
 
@@ -83,15 +108,16 @@ module part() {
   difference() {
     body();
 
-    translate([0, 0, -$eps])
-      cylinder(h = thickness + 2*$eps, d = ring_id, center = false);
+    up(thickness/2)
+      hole(h=thickness + 2*$eps, d=ring_id, chamfer=ring_chamfer);
 
-    translate([0, 0, -$eps])
-    translate([base_od,0,0])
-      cylinder(h = tab_thickness + 2*$eps, d = 6, center = false);
+    up(tab_thickness/2)
+    right(base_od)
+      hole(h = tab_thickness + 2*$eps, d = hole_d, chamfer = tab_chamfer);
 
-    translate([base_od*0.675, 0, thickness*0.4])
-    rotate([0,0,90])
+    right(base_od*0.675)
+    up(thickness*0.4)
+    zrot(90)
     linear_extrude(height = thickness*0.2 + $eps)
       text(font=":style=Bold", size=label_text_size, halign="center", valign="center", label);
   }
