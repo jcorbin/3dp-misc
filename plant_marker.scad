@@ -8,6 +8,12 @@ use <fonts/Aero Matics Stencil Regular.ttf>
 use <fonts/Stencilia-A.ttf>
 use <fonts/Stencilia-Bold.ttf>
 
+/* [Parameters] */
+
+text_size = 14;
+
+shaft_chamfer = 4;
+
 /* [Geometry Detail] */
 
 // Fragment minimum angle
@@ -25,10 +31,10 @@ module marker(
   text_depth = 0,
   body_length = 150,
   font = "Stencilia\\-A:style=Regular",
-  font_size = 16,
+  font_size = text_size,
   font_spacing = 1.1,
   taper = [48, 10],
-  chamfer = 4,
+  chamfer = shaft_chamfer,
   anchor=LEFT, orient=UP, spin=0) {
   // TODO would be nice to use textmetrics() someday to provide default/min body length
 
@@ -73,7 +79,11 @@ module marker(
   }
 }
 
-text_size = 14;
-chamfer = 4;
+ydistribute(spacing=2 + text_size + 2*shaft_chamfer) {
 
-marker("Hello World", body_length=140, font_size=text_size, chamfer=chamfer);
+  marker("Basil", body_length=55);
+  marker("Pepper", body_length=75);
+  marker("Tomato", body_length=80);
+  // TODO ... etc as needed
+
+}
