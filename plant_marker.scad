@@ -53,7 +53,7 @@ module marker(
         position(LEFT)
         tag("remove")
         up(text_h < thickness ? thickness - text_h*3/2 : 0)
-        right(chamfer*1.5)
+        right(chamfer)
           text3d(
             text=label,
             h=text_h + $eps + (text_h == thickness ? $eps : 0),
@@ -73,7 +73,7 @@ module marker(
   }
 }
 
-text_size = 16;
-chamfer = 5;
+text_size = 14;
+chamfer = 4;
 
-marker("Hello World");
+marker("Hello World", body_length=140, font_size=text_size, chamfer=chamfer);
