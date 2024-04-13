@@ -20,6 +20,7 @@ $eps = 0.01;
 module marker(
   label,
   thickness = 2.5,
+  text_depth = 0,
   body_length = 150,
   font = "Aero Matics Stencil:style=Regular",
   font_size = 16,
@@ -31,6 +32,7 @@ module marker(
 
   shaft_width = font_size + 2*chamfer;
   shaft_size = [body_length, shaft_width, thickness];
+  text_h = text_depth == 0 ? thickness : text_depth;
 
   attachable(
     size=shaft_size + [taper.x + taper.y/2, 0, 0],
@@ -48,10 +50,11 @@ module marker(
 
         position(LEFT)
         tag("remove")
+        up(text_h < thickness ? thickness - text_h*3/2 : 0)
         right(chamfer*1.5)
           text3d(
             text=label,
-            h=thickness + 2*$eps,
+            h=text_h + $eps + (text_h == thickness ? $eps : 0),
             font=font,
             size=font_size,
             spacing=font_spacing,
