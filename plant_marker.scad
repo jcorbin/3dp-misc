@@ -5,6 +5,8 @@
 include <BOSL2/std.scad>
 
 use <fonts/Aero Matics Stencil Regular.ttf>
+use <fonts/Stencilia-A.ttf>
+use <fonts/Stencilia-Bold.ttf>
 
 /* [Geometry Detail] */
 
@@ -22,7 +24,7 @@ module marker(
   thickness = 2.5,
   text_depth = 0,
   body_length = 150,
-  font = "Aero Matics Stencil:style=Regular",
+  font = "Stencilia\\-A:style=Regular",
   font_size = 16,
   font_spacing = 1.1,
   taper = [48, 10],
