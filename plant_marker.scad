@@ -81,9 +81,26 @@ module marker(
 
 ydistribute(spacing=2 + text_size + 2*shaft_chamfer) {
 
-  marker("Basil", body_length=55);
-  marker("Pepper", body_length=75);
-  marker("Tomato", body_length=80);
-  // TODO ... etc as needed
+  // marker("Golden Zucchini", body_length=185);
+  // marker("Brussel Sprouts", body_length=175);
+  // marker("Straight Squash", body_length=175);
+  // marker("Florence Fennel", body_length=175);
+  // marker("Cherry-licious", body_length=155);
+  // marker("Grey Zucchini", body_length=145);
+  // marker("Bean, Garden", body_length=135);
+  // marker("Moneymaker", body_length=135);
+  // marker("Boxcar Willie", body_length=135);
+  // marker("Cucumber", body_length=110);
+  // marker("Cabbage", body_length=90);
+  // marker("Chives", body_length=65);
+  // marker("Basil", body_length=55);
+
+  // marker("Serrano", body_length=80);
+  // marker("Habenero", body_length=90);
+  // marker("Thai Chilli", body_length=100);
+
+  // marker("Lemongrass", body_length=130);
+  // marker("Pumpkin", body_length=90);
+  marker("Luffa", body_length=55);
 
 }
