@@ -39,55 +39,58 @@ $eps = 0.01;
 
 /// implementation
 
-module holder(id, od, h, anchor = CENTER, orient = UP, spin = 0) {
-  attachable(size=[od, od, h], anchor = anchor, orient = orient, spin = spin) {
+function bracket_profile(
+  diameter,
+  ear_length=0,
+  thickness=1,
+  chamfer=1
+) = let (
+  tab_width = ear_length == 0 ? diameter : ear_length,
 
-    // TODO probably better to extrud our own U-shaped path
-    tag_scope("holder")
-    fwd(od/2)
-    union() {
-      back(od/2)
-      back_half()
-        tube(h=h, id=id, od=od);
+  od = diameter + thickness * 2,
+  or = od/2,
+  ir = diameter/2,
 
-      back_half()
-      diff() cube([od, od, h], center=true)
-        tag("remove")
-          cube([id, od + 2*$eps, h + 2*$eps], center=true);
+  // TODO see if we can have BOSL2/rounding.scad simplify this
+  chamadj = thickness/sqrt(8),
+  icham = chamfer - chamadj,
+  ocham = chamfer + chamadj,
+  iskip = sqrt(icham^2/2),
+  oskip = sqrt(ocham^2/2),
+  iarm = tab_width - iskip,
+  oarm = tab_width - oskip,
+  ileg = or - iskip,
+  oleg = or - oskip
+) turtle([
+  "move", oarm + thickness,
+  "left", 45,
+  "move", ocham,
+  "left", 45,
+  "move", oleg,
+  "arcright", ir, 180,
+  "move", oleg,
+  "left", 45,
+  "move", ocham,
+  "left", 45,
+  "move", thickness + oarm,
 
-    }
-
-    children();
-  }
-}
-
-module tab(od, h, extra = $eps, chamfer=0, anchor = CENTER, orient = UP, spin = 0) {
-  attachable(size=[od, od, h], anchor = anchor, orient = orient, spin = spin) {
-    tag_scope("tab")
-    diff(remove="hole") union() {
-
-      front_half(y=$eps)
-        cyl(d=od, h=h);
-
-      back(extra)
-      back_half(y=extra)
-        cube([od, od + extra, h], center=true);
-
-      if (chamfer > 0) {
-        up(h/2)
-        back(od/2 + extra)
-        xrot(45)
-          cube([od, chamfer + 2*$eps, chamfer + 2*$eps], center=true);
-      }
-
-      attach(TOP, BOTTOM, overlap=od-$eps)
-      tag("hole")
-        screw_hole(spec = screw, head = screw_head, thread = false, length = od);
-    }
-
-    children();
-  }
-}
+  "left", 90,
+  "move", thickness,
+  "left", 90,
+  "move", iarm,
+  "right", 45,
+  "move", icham,
+  "right", 45,
+  "move", ileg - thickness,
+  "arcleft", or, 180,
+  "move", ileg - thickness,
+  "right", 45,
+  "move", icham,
+  "right", 45,
+  "move", iarm,
+  "left", 90,
+  "move", thickness,
+], state=[-(or + tab_width), -or]);
 
 module ubracket(
   diameter,
@@ -100,54 +103,56 @@ module ubracket(
   h = width == 0 ? diameter : width;
   tab_width = ear_length == 0 ? diameter : ear_length;
 
-  od = diameter + thickness * 2;
+  profile = bracket_profile(
+    diameter,
+    ear_length=ear_length,
+    thickness=thickness,
+    chamfer=chamfer
+  );
+  profile_bounds = pointlist_bounds(profile);
+  profile_size = profile_bounds[1] - profile_bounds[0];
+  size = [profile_size.x, profile_size.y, h];
 
   attachable(
-    size=[
-      od + 2*tab_width,
-      od,
-      h
+    path=profile, h=h,
+    anchors = [
+      named_anchor("left_tab", [
+        profile_bounds[0].x + tab_width/2,
+        profile_bounds[0].y + thickness,
+        0], orient=BACK),
+      named_anchor("right_tab", [
+        profile_bounds[1].x - tab_width/2,
+        profile_bounds[0].y + thickness,
+        0], orient=BACK)
     ],
     anchor = anchor, orient = orient, spin = spin) {
 
-    xrot(-90)
-    diff() holder(
-      id = diameter,
-      od = od,
-      h = h,
-      orient=FRONT
-    ) {
-
-      fwd((diameter + thickness)/2) {
-        attach(LEFT, BACK)
-        zrot(90)
-          tab(od=tab_width, h=thickness, chamfer=chamfer);
-        attach(RIGHT, BACK)
-        zrot(-90)
-          tab(od=tab_width, h=thickness, chamfer=chamfer);
-      }
-
-      if (chamfer > 0) {
-        fwd(diameter/2 + thickness)
-        xcopies(spacing=[-diameter/2, diameter/2])
-        tag("remove")
-        zrot(45)
-          cube([chamfer + 2*$eps, chamfer + 2*$eps, h + 2*$eps], center=true);
-      }
-
-    }
+    intersect("mask")
+    linear_sweep(profile, h, center=true)
+      tag("mask")
+        cuboid(size, rounding=h/2, edges="Y");
 
     children();
   }
 }
 
-ubracket(
+module attach_copies(at, to, overlap, norot=false) {
+  req_children($children);
+  assert(is_list(at));
+  for ($idx = idx(at)) {
+    attach(at[$idx], to, overlap, norot) children();
+  }
+}
+
+diff("hole") ubracket(
   diameter,
   width=width,
   ear_length=ear_length,
   thickness=thickness,
   chamfer=chamfer
 ) {
-  show_anchors();
-  #cube($parent_size, center=true);
+  screw_length = 5*thickness;
+  attach_copies(["left_tab", "right_tab"], BOTTOM, overlap = screw_length)
+  tag("hole")
+    screw_hole(spec = screw, head = screw_head, thread = false, length = screw_length + $eps);
 }
