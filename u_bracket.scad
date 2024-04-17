@@ -8,17 +8,17 @@ include <BOSL2/screws.scad>
 // Nominal diameter of the held thing.
 diameter = 14;
 
-// Wall thickness of the bracket.
-thickness = 4;
+// Bracket width along the held thing; if zero, use diameter.
+width = 0;
 
-// Mounting tab/ear length out from the main U.
-ear_length = 14;
+// Mounting tab/ear length out from the main U; if zero, use diameter.
+ear_length = 0;
+
+// Wall thickness of the bracket.
+thickness = 3;
 
 // Inner and outer chamfer where the bracket turns into each mounting tab/ear.
 chamfer = 3;
-
-// Bracket width along the held thing.
-width = 14;
 
 // Mounting screw spec.
 screw = "#6";
@@ -47,13 +47,13 @@ module holder(id, od, h, anchor = CENTER, orient = UP, spin = 0) {
     fwd(od/2)
     union() {
       back(od/2)
-      back_half(z=-(od - id)/2)
-        tube(h=h, id=diameter, od=od);
+      back_half()
+        tube(h=h, id=id, od=od);
 
       back_half()
       diff() cube([od, od, h], center=true)
         tag("remove")
-          cube([diameter, od + 2*$eps, h + 2*$eps], center=true);
+          cube([id, od + 2*$eps, h + 2*$eps], center=true);
 
     }
 
@@ -89,29 +89,65 @@ module tab(od, h, extra = $eps, chamfer=0, anchor = CENTER, orient = UP, spin = 
   }
 }
 
-xrot(-90)
-diff() holder(
-  id = diameter,
-  od = diameter + thickness * 2,
-  h = width,
-  orient=FRONT
+module ubracket(
+  diameter,
+  width=0,
+  ear_length=0,
+  thickness=1,
+  chamfer=1,
+  anchor = CENTER, orient = UP, spin = 0) {
+
+  h = width == 0 ? diameter : width;
+  tab_width = ear_length == 0 ? diameter : ear_length;
+
+  od = diameter + thickness * 2;
+
+  attachable(
+    size=[
+      od + 2*tab_width,
+      od,
+      h
+    ],
+    anchor = anchor, orient = orient, spin = spin) {
+
+    xrot(-90)
+    diff() holder(
+      id = diameter,
+      od = od,
+      h = h,
+      orient=FRONT
+    ) {
+
+      fwd((diameter + thickness)/2) {
+        attach(LEFT, BACK)
+        zrot(90)
+          tab(od=tab_width, h=thickness, chamfer=chamfer);
+        attach(RIGHT, BACK)
+        zrot(-90)
+          tab(od=tab_width, h=thickness, chamfer=chamfer);
+      }
+
+      if (chamfer > 0) {
+        fwd(diameter/2 + thickness)
+        xcopies(spacing=[-diameter/2, diameter/2])
+        tag("remove")
+        zrot(45)
+          cube([chamfer + 2*$eps, chamfer + 2*$eps, h + 2*$eps], center=true);
+      }
+
+    }
+
+    children();
+  }
+}
+
+ubracket(
+  diameter,
+  width=width,
+  ear_length=ear_length,
+  thickness=thickness,
+  chamfer=chamfer
 ) {
-
-  fwd((diameter + thickness)/2) {
-    attach(LEFT, BACK)
-    zrot(90)
-      tab(od=ear_length, h=thickness, chamfer=chamfer);
-    attach(RIGHT, BACK)
-    zrot(-90)
-      tab(od=ear_length, h=thickness, chamfer=chamfer);
-  }
-
-  if (chamfer > 0) {
-    fwd(diameter/2 + thickness)
-    xcopies(spacing=[-diameter/2, diameter/2])
-    tag("remove")
-    zrot(45)
-      cube([chamfer + 2*$eps, chamfer + 2*$eps, width + 2*$eps], center=true);
-  }
-
+  show_anchors();
+  #cube($parent_size, center=true);
 }
