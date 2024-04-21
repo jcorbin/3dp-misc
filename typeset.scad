@@ -20,17 +20,17 @@ frame_width = 10;
 frame_padding = [25, 25, 100];
 
 // Fit tolerance of tiles in the frame.
-tolerance = 0.1;
+tolerance = 0.15;
 
 /* [Tile and Font Specifics] */
 
 font = "Stencilia\\-A:style=Regular";
 
 // Font size coutning up from baseline; needs to be smaller than tile_size.y if you need to fit baseline descenders.
-font_size = 10;
+font_size = 16;
 
 // Tile size in x/y; currently it's difficul / manual to generate properly kerned varibale width tiles, since OpenSCAD textmetrics() is not yet a thing.
-tile_size = [10, 16];
+tile_size = [20, 25];
 
 // Thickness of tile, and also their diagonal shift amount.
 tile_thickness = 2;
