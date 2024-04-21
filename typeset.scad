@@ -6,16 +6,33 @@ use <fonts/Aero Matics Stencil Regular.ttf>
 use <fonts/Stencilia-A.ttf>
 use <fonts/Stencilia-Bold.ttf>
 
-/* [Glyph Tile] */
+mode = "test kit"; // ["test kit", "frame", "tile", "set upper", "set lower", "set punct", "set numbers"]
 
-glyph = "3";
+// What glyph to draw for mode="tile"
+glyph = "X";
+
+// Frame width tile count for mode="frame"
+frame_width = 10;
+
+/* [Frame] */
+
+// Frame padding around the tile tray cutout.
+frame_padding = [25, 25, 100];
+
+// Fit tolerance of tiles in the frame.
+tolerance = 0.1;
+
+/* [Tile and Font Specifics] */
 
 font = "Stencilia\\-A:style=Regular";
 
-tile_size = [10, 16];
-
+// Font size coutning up from baseline; needs to be smaller than tile_size.y if you need to fit baseline descenders.
 font_size = 10;
 
+// Tile size in x/y; currently it's difficul / manual to generate properly kerned varibale width tiles, since OpenSCAD textmetrics() is not yet a thing.
+tile_size = [10, 16];
+
+// Thickness of tile, and also their diagonal shift amount.
 tile_thickness = 2;
 
 /* [Geometry Detail] */
@@ -59,26 +76,23 @@ module glyph_tile(glyph, w=1, anchor = CENTER, orient = UP, spin = 0) {
   }
 }
 
-module glyph_tile_row(glyphs) {
+module glyph_tile_row(glyphs, anchor = CENTER, orient = UP, spin = 0) {
   xcopies(n=len(glyphs), spacing=tile_size.x + 3*tile_thickness)
-    glyph_tile(glyphs[$idx]);
+    glyph_tile(glyphs[$idx], anchor = anchor, orient = orient, spin = spin);
 }
 
-module glyph_tile_rows(glyphss) {
+module glyph_tile_rows(glyphss, anchor = CENTER, orient = UP, spin = 0) {
   ycopies(n=len(glyphss), spacing=tile_size.y + 3*tile_thickness)
-    glyph_tile_row(glyphss[$idx]);
+    glyph_tile_row(glyphss[len(glyphss) - $idx - 1], anchor = anchor, orient = orient, spin = spin);
 }
-
-tolerance = 0.1;
 
 module tile_frame(
   size,
   w,
+  pad = [16, 16, 64],
   anchor = CENTER, orient = UP, spin = 0) {
 
-  pad = [16, 16, 64];
-
-  n = default(w, floor((size.x - pad.x*2) / tile_size.x));
+  n = default(w, floor((default(size.x, tile_size.x*2) - pad.x*2) / tile_size.x));
 
   box = v_mul(tile_size, [n, 1]);
   size1 = box + [tile_thickness, 0];
@@ -128,31 +142,99 @@ module tile_frame(
   }
 }
 
-// right_half(s=1000)
-// back_half(s=1000)
-tile_frame(
-  size=[200, 80, 80],
-  // w=10,
-  anchor=BOTTOM);
+if (mode == "test kit") {
+  // back_half(s=1000)
+  // right_half(s=1000)
+  tile_frame(
+    w=3,
+    pad=[
+      frame_padding.x/2,
+      frame_padding.y/2,
+      frame_padding.z/4,
+    ],
+    anchor=$preview ? BOTTOM : TOP,
+    orient=$preview ? UP : DOWN);
 
-/*
+  fwd(3*tile_size.y)
+    glyph_tile_rows([
+      ["A", "B", "C"],
+      ["1", "2", "3"],
+      [" "]
+    ], anchor=BOTTOM);
+}
 
-// back_half(s=1000)
-tile_frame(w=2, anchor=BOTTOM);
+else if (mode == "frame") {
+  // right_half(s=1000)
+  // back_half(s=1000)
+  tile_frame(
+    w=frame_width,
+    pad=frame_padding,
+    anchor=BOTTOM);
+}
 
-right(tile_size.x*3)
-glyph_tile("1", anchor=BOTTOM);
+else if (mode == "tile") {
+  glyph_tile(glyph, anchor=BOTTOM);
+}
 
-left(tile_size.x*3)
-glyph_tile("2", anchor=BOTTOM);
-*/
+else if (mode == "set upper") {
+  glyph_tile_rows([
+    ["A", "B", "C", "D", "E", "F"],
+    ["G", "H", "I", "J", "K", "L"],
+    ["M", "N", "O", "P", "Q", "R"],
+    ["S", "T", "U", "V", "W", "X"],
+    ["Y", "Z", " "],
+  ]);
+}
 
-/*
+else if (mode == "set lower") {
+  glyph_tile_rows([
+    ["a", "b", "c", "d", "e", "f"],
+    ["g", "h", "i", "j", "k", "l"],
+    ["m", "n", "o", "p", "q", "r"],
+    ["s", "t", "u", "v", "w", "x"],
+    ["y", "z", " "],
+  ]);
+}
 
-glyph_tile_rows([
-  ["A", "B", "C", "D"],
-  ["1", "2", "3", "4"],
-  ["b", "p", "q", "g"],
-]);
+else if (mode == "set punct") {
+  glyph_tile_rows([
+    [
+      ",", ".",
+      "!", "@",
+      "#", "$",
+      "%", "&",
+      "*",
+    ],
 
-*/
+    [
+      "?", "/",
+      // "\\", FIXME
+      "|",
+      "-", "_",
+      "+", "=",
+      "~", "`",
+    ],
+
+    [
+      ";", ":",
+      "'", "\"",
+      " ",
+    ],
+
+    [
+      "<", ">",
+      "[", "]",
+      "[", "]",
+      "{", "}",
+      "(", ")",
+    ],
+  ]);
+}
+
+else if (mode == "set numbers") {
+  glyph_tile_rows([
+    ["1", "2", "3", "4", "5"],
+    ["6", "7", "8", "9", "0"],
+    ["."],
+  ]);
+}
