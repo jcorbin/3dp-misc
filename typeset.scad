@@ -61,7 +61,6 @@ module glyph_tile(glyph, w=1, anchor = CENTER, orient = UP, spin = 0) {
     diff(remove="glyph")
     prismoid(size1=size1, size2=size2, h=h, shift=shift, center=true) {
       fwd(font_size*0.45)
-      right(tile_thickness/2)
       position(CENTER)
       tag("glyph") text3d(glyph,
         h = tile_thickness + 2*$eps,
