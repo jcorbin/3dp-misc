@@ -113,27 +113,27 @@ module tile_frame(
       [0, 0, 1, 1], // xy
     ]) {
 
+      win_size = box - shift;
+      tray_h = h + tol;
+      win_h = sz.z - tray_h;
+
       tag("window")
-      translate(shift/2)
+      attach(TOP, BOTTOM, overlap=win_h + $eps)
         prismoid(
-          size1=box - shift,
-          size2=[
-            sz.x - pad.x,
-            sz.y - pad.y
-          ],
-          // size2=box - shift + [pad.x, pad.y],
-          h=sz.z+2*$eps,
+          size1=win_size,
+          size2=win_size + [pad.x, pad.y]/2,
+          h=win_h + 2*$eps,
           center=true
         );
 
       tag("tray")
-        down((sz.z - h - tol)/2 + $eps)
-        left(tile_thickness)
-        right(pad.x)
+      right(tile_thickness)
+      right(pad.x/2)
+      attach(BOTTOM, TOP, overlap=tray_h)
         prismoid(
-          size1=size1 + [tol + pad.x + $eps, 3*tol],
-          size2=size2 + [tol + pad.x + $eps, tol],
-          h=h + tol + $eps,
+          size1=size1 + [2*tol + pad.x + $eps, 3*tol],
+          size2=size2 + [2*tol + pad.x + $eps, 3*tol],
+          h=tray_h + $eps,
           shift=shift + [tol, 0], anchor=CENTER);
 
     }
