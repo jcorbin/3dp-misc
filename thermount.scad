@@ -7,6 +7,8 @@ include <BOSL2/walls.scad>
 // Size of the module body, X/Y main housing, not face frame/lip.
 module_size = [45.2, 26, 32];
 
+module_housing_depth = 15;
+
 // Depth of surrounding face lip.
 module_lip = 1.5;
 
@@ -45,7 +47,7 @@ power_module_tolerance = 0.2;
 power_channel_chamfer = 1;
 
 // Fit tolerance for the fixation plug that will fill the power module wiring channel after installation.
-power_channel_plug_tolerance = 0.1;
+power_channel_plug_tolerance = 0;
 
 // Offset power channel from back of power module PCB; this helps the channel to miss the wrap wall channel, but needs to be low enough to still keep the USB-C socket pressed forward vs insertion.
 power_channel_backset = 0.4;
@@ -91,13 +93,27 @@ body_chamfer = 5;
 
 backstage = 35;
 
+backstage_chamfer = 5;
+
+module_backstage_overlap = module_size.z - module_housing_depth;
+
 body_size = [
   module_size.x + 2*module_lip + 2*body_margin.x,
-  module_size.z + backstage,
+  module_size.z + backstage - module_backstage_overlap,
   module_size.y + 2*module_lip + 2*body_margin.y
 ];
 
-hole_size = module_size + [0, 0, backstage] + 2*scalar_vec3(module_tol);
+hole_size = module_size + 2*scalar_vec3(module_tol) + [
+  0,
+  module_grip,
+  0
+];
+
+backstage_size = [
+  hole_size.x + 2*backstage_chamfer,
+  hole_size.y + 2*backstage_chamfer,
+  backstage
+];
 
 power_module_lift = 1.5;
 
@@ -361,7 +377,7 @@ function scalar_vec2(v, dflt) =
 module body(anchor = CENTER, spin = 0, orient = UP) {
   attachable(anchor, spin, orient, size=body_size) {
 
-    diff() cuboid(
+    diff(remove="mount backstage power_module wire_hole", keep="support") cuboid(
       body_size,
       chamfer = body_chamfer,
       edges = [
@@ -371,26 +387,54 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
       ]
     ) {
 
-      tag("remove")
+      tag("mount")
         attach(FRONT, BOTTOM, overlap=hole_size.z + $eps)
-        cuboid(hole_size + [0, 0, 2*$eps]);
+        cuboid(hole_size + [0, 0, 2*$eps])
 
-      tag("remove")
+          tag("backstage")
+
+            attach(BOTTOM, TOP, overlap = module_backstage_overlap)
+            cuboid(backstage_size,
+              chamfer = backstage_chamfer,
+              edges = [
+                [0, 0, 1, 1], // yz -- +- -+ ++
+                [0, 0, 1, 1], // xz
+                [0, 0, 0, 0], // xy
+              ])
+
+                attach(BOTTOM, TOP, overlap = backstage_chamfer)
+                cuboid([
+                  backstage_size.x + 2*backstage_chamfer,
+                  backstage_size.y + 2*backstage_chamfer,
+                  backstage_chamfer + $eps
+                ],
+                  chamfer = backstage_chamfer,
+                  edges = [
+                    [0, 0, 1, 1], // yz -- +- -+ ++
+                    [0, 0, 1, 1], // xz
+                    [0, 0, 0, 0], // xy
+                  ]);
+
+      tag("power_module")
       up(power_module_lift)
-      fwd(struct_val(ppp, "size").y - $eps)
-      attach(BACK+BOTTOM, BACK+BOTTOM)
+      back(body_size.y/2 - struct_val(ppp, "size").x / 2 - body_chamfer - 1)
+      left(struct_val(ppp, "size").y - $eps)
+      attach(RIGHT+BOTTOM, BACK+BOTTOM)
       xrot(-90)
         power_port();
 
-      tag("remove")
+      wire_hole_h = (body_size.x - backstage_size.x)/2;
+
+      tag("wire_hole")
         down(hole_size.y/2 - wire_hole_d/2 - 0.4)
         back((body_size.y - 2*body_chamfer)/2 - wire_hole_d/2 - 0.4)
-        attach([RIGHT, LEFT], BOTTOM, overlap = body_margin.x*2 + $eps)
-        cyl(d=wire_hole_d, h=body_margin.x*3)
+        attach([RIGHT, LEFT], BOTTOM, overlap = wire_hole_h + $eps)
+        cyl(d=wire_hole_d, h=wire_hole_h + 2*$eps)
 
-          force_tag("keep")
+          force_tag("support")
+          attach(BOTTOM, FRONT, overlap=wire_hole_h + $eps)
           zrot(90)
-            support_wall(h=wire_hole_d, l=(body_size.x - hole_size.x)/2, orient=FRONT);
+            support_wall(h=wire_hole_d, l=wire_hole_h);
 
     }
 
@@ -398,7 +442,10 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
-body(anchor=FRONT, orient=FRONT);
-
-back(body_size.y/2 + 25)
-channel_plug(power_channel_size.z, anchor=BOTTOM);
+if ($preview) {
+  body();
+} else {
+  body(anchor=FRONT, orient=FRONT);
+  back(body_size.y/2 + 25)
+  channel_plug(power_channel_size.z, anchor=BOTTOM);
+}
