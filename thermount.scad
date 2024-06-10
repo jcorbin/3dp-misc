@@ -47,30 +47,13 @@ power_module_tolerance = 0.2;
 power_channel_chamfer = 1;
 
 // Fit tolerance for the fixation plug that will fill the power module wiring channel after installation.
-power_channel_plug_tolerance = 0;
+power_channel_plug_tolerance = 0.1;
 
 // Offset power channel from back of power module PCB; this helps the channel to miss the wrap wall channel, but needs to be low enough to still keep the USB-C socket pressed forward vs insertion.
 power_channel_backset = 0.4;
 
 // Notch in the back of the channel plug, allowing it to flex and be removed by a tool (like pliers).
 channel_plug_notch_size = [ 5, 3 ];
-
-/* [Designed Supports] */
-
-// Interface gap between support and supported part.
-support_gap = 0.2;
-
-// Bridging gap between supports.
-support_every = 15;
-
-// Thickness of support walls and internal struts.
-support_width = 0.8;
-
-// Thickness of footer support walls that run parallel to and underneath floating external walls.
-support_wall_width = 2.4;
-
-// Enable to show support walls in preview, otherwise only active in production renders.
-$support_preview = false;
 
 /* [Geometry Detail] */
 
@@ -122,7 +105,7 @@ power_channel_size = [
   sqrt(power_pcb_size[1]^2/2) +
   sqrt(power_pcb_size[2]^2/2) +
   2*power_channel_chamfer,
-  (body_size.z - hole_size.y)/2 - power_module_lift + $eps
+  (body_size.z - backstage_size.y)/2 - power_module_lift + $eps
 ];
 
 // power port particulars
@@ -343,32 +326,6 @@ module channel_plug(
   }
 }
 
-module if_support() {
-  if (!$preview || $support_preview) {
-    children();
-  }
-}
-
-module support_wall(
-  h, l,
-  gap = support_gap,
-  width = support_width,
-  anchor = CENTER, spin = 0, orient = UP
-) {
-  wid = scalar_vec2(width);
-  if_support()
-  tag("support")
-  attachable(anchor, spin, orient, size=[wid.x, l, h]) {
-    sparse_wall(
-      h=h - 2*gap,
-      l=l - 2*gap,
-      thick=wid.x,
-      strut=wid.y);
-
-    children();
-  }
-}
-
 function scalar_vec2(v, dflt) =
   is_undef(v)? undef :
   is_list(v)? [for (i=[0:1]) default(v[i], default(dflt, 0))] :
@@ -377,7 +334,7 @@ function scalar_vec2(v, dflt) =
 module body(anchor = CENTER, spin = 0, orient = UP) {
   attachable(anchor, spin, orient, size=body_size) {
 
-    diff(remove="mount backstage power_module wire_hole", keep="support") cuboid(
+    diff(remove="mount backstage power_module wire_hole") cuboid(
       body_size,
       chamfer = body_chamfer,
       edges = [
@@ -429,12 +386,7 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
         down(hole_size.y/2 - wire_hole_d/2 - 0.4)
         back((body_size.y - 2*body_chamfer)/2 - wire_hole_d/2 - 0.4)
         attach([RIGHT, LEFT], BOTTOM, overlap = wire_hole_h + $eps)
-        cyl(d=wire_hole_d, h=wire_hole_h + 2*$eps)
-
-          force_tag("support")
-          attach(BOTTOM, FRONT, overlap=wire_hole_h + $eps)
-          zrot(90)
-            support_wall(h=wire_hole_d, l=wire_hole_h);
+        cyl(d=wire_hole_d, h=wire_hole_h + 2*$eps);
 
     }
 
