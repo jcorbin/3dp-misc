@@ -24,23 +24,15 @@ hang_hole_spacing = 50;
 
 hang_hold_offset = -40;
 
-/* [Feet Lift]*/
+/* [Rim Lift] */
 
-foot_lift = 25;
+rim_lift = 25;
 
-foot_size = [20, 10];
+rim_width = 10;
 
-foot_taper = 1;
+rim_gap = 25;
 
-foot_offset = 20;
-
-foot_spacing = 125;
-
-foot_spin = 40;
-
-top_foot_spacing = 170;
-
-top_foot_offset = -40;
+rim_taper = 1;
 
 /* [Geometry Detail] */
 
@@ -67,6 +59,30 @@ module plate(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+module rim(anchor = CENTER, spin = 0, orient = UP) {
+  if (rim_lift > 0 && rim_width > 0) {
+    h = rim_lift + $eps;
+
+    attachable(anchor, spin, orient, size=[plate_d, plate_d/2, h]) {
+      tag_scope("rim")
+      diff()
+        back(plate_d/4)
+        front_half(s=2*plate_d)
+        tube(od1=plate_d - rim_taper*2, od2=plate_d, wall=rim_width, h=h) {
+          tag("remove")
+          down(h/2 - $eps)
+          attach(FRONT, FRONT, overlap=plate_d/4)
+            prismoid(
+              size2=[rim_gap, plate_d/2],
+              size1=[rim_gap + 4*rim_taper, plate_d/2],
+              h=2*h);
+        }
+
+      children();
+    }
+  }
+}
+
 diff() plate() {
   fwd(mount_offset)
   tag("remove")
@@ -79,23 +95,5 @@ diff() plate() {
     xcopies(n=2, spacing=hang_hole_spacing)
     cyl(d=hang_hole_d, h=plate_h + 2*$eps);
 
-  if (foot_size.x * foot_size.y > 0) {
-    fwd(foot_offset)
-    attach(BOTTOM, TOP, overlap=$eps)
-    xcopies(n=2, spacing=foot_spacing)
-    prismoid(
-      size1=foot_size - [2*foot_taper, 2*foot_taper],
-      size2=foot_size,
-      spin=($idx % 2 == 1 ? -1 : 1) * foot_spin,
-      h=foot_lift + $eps);
-
-    fwd(top_foot_offset)
-    attach(BOTTOM, TOP, overlap=$eps)
-    xcopies(n=2, spacing=top_foot_spacing)
-    prismoid(
-      size1=foot_size - [2*foot_taper, 2*foot_taper],
-      size2=foot_size,
-      h=foot_lift + $eps);
-  }
+  attach(BOTTOM, TOP, overlap=$eps) rim();
 }
-
