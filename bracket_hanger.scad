@@ -4,7 +4,7 @@ include <BOSL2/std.scad>
 
 plate_d = 200;
 
-plate_h = 3;
+plate_h = 5;
 
 plate_chamfer = 1;
 
@@ -12,7 +12,7 @@ plate_chamfer = 1;
 
 mount_offset = 10;
 
-mount_hole_d = 5;
+mount_hole_d = 5.2;
 
 mount_hole_spacing = 33;
 
@@ -20,7 +20,7 @@ mount_hole_spacing = 33;
 
 hang_hole_d = 5;
 
-hang_hole_spacing = 170;
+hang_hole_spacing = 50;
 
 hang_hold_offset = -40;
 
@@ -38,7 +38,7 @@ foot_spacing = 125;
 
 foot_spin = 40;
 
-top_foot_spacing = 130;
+top_foot_spacing = 170;
 
 top_foot_offset = -40;
 
@@ -88,7 +88,6 @@ diff() plate() {
       size2=foot_size,
       spin=($idx % 2 == 1 ? -1 : 1) * foot_spin,
       h=foot_lift + $eps);
-
 
     fwd(top_foot_offset)
     attach(BOTTOM, TOP, overlap=$eps)
