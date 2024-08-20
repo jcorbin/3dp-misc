@@ -17,6 +17,8 @@ mount_screw = "M5";
 
 mount_screw_tol = 0.1;
 
+mount_nut_tol = 0.4;
+
 mount_hole_spacing = 33;
 
 /* [Hang Holes] */
@@ -88,10 +90,15 @@ module rim(anchor = CENTER, spin = 0, orient = UP) {
 
 module mount_hole(anchor = CENTER, spin = 0, orient = UP, h=10) {
   mount_screw_d = struct_val(screw_info(mount_screw), "diameter");
+  mount_nut_d = struct_val(nut_info(mount_screw), "width");
+  mount_nut_h = struct_val(nut_info(mount_screw), "thickness");
+  hh = min(plate_h/2, mount_nut_h/2) + mount_nut_tol;
   d = mount_screw_d + 2*mount_screw_tol;
 
   attachable(anchor, spin, orient, d=d, h=h) {
-    cyl(d=d, h=h);
+    cyl(d=d, h=h)
+      attach(BOTTOM, TOP, overlap=hh)
+      cyl(d=mount_nut_d + 2*mount_nut_tol, h=hh, $fn=6);
 
     children();
   }
