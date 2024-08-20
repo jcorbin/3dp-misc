@@ -1,4 +1,5 @@
 include <BOSL2/std.scad>
+include <BOSL2/screws.scad>
 
 /* [Plate Dimensions] */
 
@@ -12,7 +13,9 @@ plate_chamfer = 1;
 
 mount_offset = 10;
 
-mount_hole_d = 5.2;
+mount_screw = "M5";
+
+mount_screw_tol = 0.1;
 
 mount_hole_spacing = 33;
 
@@ -83,12 +86,22 @@ module rim(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+module mount_hole(anchor = CENTER, spin = 0, orient = UP, h=10) {
+  mount_screw_d = struct_val(screw_info(mount_screw), "diameter");
+  d = mount_screw_d + 2*mount_screw_tol;
+
+  attachable(anchor, spin, orient, d=d, h=h) {
+    cyl(d=d, h=h);
+
+    children();
+  }
+}
+
 diff() plate() {
   fwd(mount_offset)
   tag("remove")
-    ycopies(n=2, spacing= mount_hole_spacing)
-    cyl(d=mount_hole_d, h=plate_h + 2*$eps);
-
+    ycopies(n=2, spacing=mount_hole_spacing)
+    mount_hole(h=plate_h + 2*$eps);
 
   fwd(hang_hold_offset)
   tag("remove")
