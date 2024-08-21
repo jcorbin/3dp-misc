@@ -17,7 +17,7 @@ mount_screw = "M5";
 
 mount_screw_tol = 0.1;
 
-mount_nut_tol = 0.4;
+mount_nut_tol = 0.6;
 
 mount_hole_spacing = 33;
 
