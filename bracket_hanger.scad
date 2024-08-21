@@ -5,7 +5,7 @@ include <BOSL2/screws.scad>
 
 plate_d = 200;
 
-plate_h = 5;
+plate_h = 7;
 
 plate_chamfer = 1;
 
@@ -38,6 +38,8 @@ rim_width = 10;
 rim_gap = 25;
 
 rim_taper = 1;
+
+rim_slope_to = 10;
 
 /* [Geometry Detail] */
 
@@ -81,6 +83,18 @@ module rim(anchor = CENTER, spin = 0, orient = UP) {
               size2=[rim_gap, plate_d/2],
               size1=[rim_gap + 4*rim_taper, plate_d/2],
               h=2*h);
+
+          tag("remove")
+          down(rim_lift/2)
+          left(plate_d/2 + $eps)
+          fwd(plate_d/2)
+          xrot(-atan2(rim_slope_to, plate_d/2))
+            cube([
+              plate_d + 2*$eps,
+              sqrt((rim_slope_to)^2 + (plate_d/2)^2)*2, // gratuitous over cut, but who's got the time for moar trig
+              rim_slope_to
+            ]);
+
         }
 
       children();
