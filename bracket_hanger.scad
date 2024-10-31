@@ -39,7 +39,7 @@ rim_gap = 25;
 
 rim_taper = 1;
 
-rim_slope_to = 10;
+rim_slope_to = 5;
 
 /* [Geometry Detail] */
 
