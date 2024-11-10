@@ -24,6 +24,10 @@ $eps = 0.01;
 
 module __customizer_limit__() {}
 
+function grid_foot() =  [
+  [ "profile_height", 0.8 + 1.8 + 2.15 ],
+];
+
 module grid_foot(
   size = [grid_unit, grid_unit], h = 7,
   anchor = CENTER, spin = 0, orient = UP
@@ -33,7 +37,8 @@ module grid_foot(
   h1 = 0.8;
   h2 = 1.8;
   h3 = 2.15;
-  h4 = h - h3 - h2 - h1;
+  h4 = max(0, h - h3 - h2 - h1);
+  th = h1 + h2 + h3 + h4;
 
   r3 = (grid_rounding - grid_tolerance)/2;
   r2 = 3.2/2; // TODO maths?
@@ -44,11 +49,11 @@ module grid_foot(
   size1 = size2 - [2*h1, 2*h1];
 
   attachable(anchor, spin, orient,
-    size=[size1.x, size1.y, h],
+    size=[size1.x, size1.y, th],
     size2=size3
   ) {
 
-    down(h/2)
+    down(th/2)
     diff()
     prismoid(
       size1=size1,
