@@ -40,7 +40,7 @@ module grid_foot(
   h4 = max(0, h - h3 - h2 - h1);
   th = h1 + h2 + h3 + h4;
 
-  r3 = (grid_rounding - grid_tolerance)/2;
+  r3 = grid_rounding - grid_tolerance;
   r2 = 3.2/2; // TODO maths?
   r1 = 1.6/2; // TODO maths?
 
@@ -87,15 +87,27 @@ module grid_foot(
   }
 }
 
-module grid_body(size = [grid_unit, grid_unit], h = 7, anchor = CENTER, spin = 0, orient = UP) {
+function grid_body(size = [grid_unit, grid_unit], h = 7) = let (
   // TODO parameterize profile
-  h1 = 0.8;
-  h2 = 1.8;
-  h3 = 2.15;
-  h4 = h - h3 - h2 - h1;
-  sz = scalar_vec3(size - [grid_tolerance, grid_tolerance], h4);
+  h1 = 0.8,
+  h2 = 1.8,
+  h3 = 2.15,
+  h4 = h - h3 - h2 - h1
+) [
+  [ "h1", 0.8 ],
+  [ "h2", 1.8 ],
+  [ "h3", 2.15 ],
+  [ "h4", h - h3 - h2 - h1 ],
+  [ "size", scalar_vec3(size - [grid_tolerance, grid_tolerance], h4) ],
+  [ "rounding", grid_rounding - grid_tolerance ]
+];
+
+module grid_body(size = [grid_unit, grid_unit], h = 7, anchor = CENTER, spin = 0, orient = UP) {
+  info = grid_body(size, h);
+  sz = struct_val(info, "size");
+  r = struct_val(info, "rounding");
   attachable(anchor, spin, orient, size=sz) {
-    cuboid(sz, rounding=(grid_rounding - grid_tolerance)/2, edges="Z");
+    cuboid(sz, rounding=r, edges="Z");
     children();
   }
 }

@@ -18,8 +18,14 @@ cableslot_size = [ 5, 12 ];
 // Phone holder tray size: xy should roughly match phone dimensions, z sets tactile rim depth.
 tray_size = [ 69, 150, 7 ];
 
+// Set back tray face from front edge by this amount
+tray_back = 12;
+
+// When setting the tray back, create a lip at the block front edge.
+tray_lip = [ 1.2, 3.5 ];
+
 // Angle at which the phone holder tray is stood up from the xy plane.
-tray_angle = 70;
+tray_angle = 65;
 
 // How far up the phone tray to place the puck mount; proportion of tray_size.y space.
 tray_mount_loc = 0.75;
@@ -57,7 +63,7 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
   fh = struct_val(grid_foot(), "profile_height");
   height = gh + sin(tray_angle) * tray_size.y;
 
-  grid_front_top = [0, -size1.y/2, -height/2 + gh];
+  grid_front_top = [0, -size1.y/2 + tray_back, -height/2 + gh];
   face_tangent = apply(xrot(-(90-tray_angle)), FRONT);
   face_up = apply(xrot(-(90-tray_angle)), UP);
 
@@ -75,16 +81,47 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
     up(fh)
     union() {
 
-      conv_hull()
       grid_body(size1, h=gh, anchor=BOTTOM) {
-        position(FRONT+TOP)
-        top_half(s=max(tray_size)*2)
-        xrot(tray_angle)
-        cuboid(tray_size, rounding=tray_size.x/3, edges=[
-          [0, 0, 0, 0], // yz -- +- -+ ++
-          [0, 0, 0, 0], // xz
-          [0, 0, 1, 1], // xy
-        ], anchor=FRONT+TOP);
+        body_info = grid_body(size1, h=gh);
+        body_size = struct_val(body_info, "size");
+        base_size = body_size - [ 0, tray_back, 0 ];
+        body_round = struct_val(body_info, "rounding");
+
+        // grid space bounding box check aid
+        // %down(fh) position(BOTTOM) cuboid([
+        //   body_size.x,
+        //   body_size.y,
+        //   7 * 21
+        // ], rounding=body_round, edges="Z", anchor=BOTTOM);
+
+        conv_hull()
+        back(tray_back/2)
+        cuboid(base_size, rounding=body_round, edges="Z")
+          position(FRONT+TOP)
+          top_half(s=max(tray_size)*2)
+          xrot(tray_angle)
+            cuboid(tray_size, rounding=tray_size.x/3, edges=[
+              [0, 0, 0, 0], // yz -- +- -+ ++
+              [0, 0, 0, 0], // xz
+              [0, 0, 1, 1], // xy
+            ], anchor=FRONT+TOP);
+
+        if (tray_back > 0 && tray_lip.x * tray_lip.y > 0) {
+          lip_size = [ base_size.x, body_size.y, tray_lip.y ];
+          lip_oround = body_round;
+
+          lip_isize = lip_size - [ 2*tray_lip.x, 2*tray_lip.x, 0 ];
+          lip_iround = lip_oround - tray_lip.x;
+
+          attach(TOP, BOTTOM)
+          diff()
+          cuboid(lip_size, rounding=lip_oround, edges="Z")
+            tag("remove")
+            attach(TOP, BOTTOM, overlap=lip_isize.z+$eps)
+              cuboid(lip_isize + [0, 0, 2*$eps], rounding=lip_iround, edges="Z");
+
+        }
+
       }
 
       grid_copies(spacing=42, n=platform_size)
@@ -98,6 +135,13 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
 }
 
 diff() body() {
+
+  face_up = apply(xrot(-(90-tray_angle)), UP);
+
+  // phone dummy
+  // move(face_up * -42)
+  attach("face_mount", BOTTOM)
+    %cuboid([71.5, 146.5, 8], rounding=12, edges="Z");
 
   // puck mount
   attach("face_mount", BOTTOM, overlap=puck_size.y)
@@ -133,17 +177,35 @@ diff() body() {
       down($eps)
       down(fh)
       xcopies(spacing=42, n=wire_bore_n)
-        cyl(d=wire_bore_d, h=bh+2*$eps, anchor=BOTTOM);
+        cyl(d=wire_bore_d, h=bh/2+2*$eps, anchor=BOTTOM);
 
-      stage_w = max(1, wire_stage_width);
+      stage_gw = max(1, wire_stage_width);
+      stage_w = 42*stage_gw + wire_bore_d;
+      stage_r = wire_bore_d/2;
+      stage_taper_to = stage_r*2;
+      stage_fudge = 10;
 
       // backstage area
-      back(10)
+      back(stage_fudge)
       up(bh/2 + $eps)
-        cuboid(
-          [42*stage_w + wire_bore_d, wire_stage_depth, 2*bh],
-          rounding=wire_bore_d/2, edges="Z",
-          anchor=BOTTOM);
+        prismoid(
+          size1=[stage_w, wire_stage_depth],
+          size2=[stage_w, stage_taper_to],
+          h=bh,
+          shift=[0, wire_stage_depth - stage_taper_to ],
+          rounding=stage_r,
+          anchor=BOTTOM)
+            attach(BOTTOM, TOP, overlap=$eps)
+              cuboid([stage_w, wire_stage_depth, 7 + $eps],
+              rounding=stage_r, edges=[
+                [0, 0, 0, 0], // yz -- +- -+ ++
+                [0, 0, 0, 0], // xz
+                [1, 1, 0, 0], // xy
+              ])
+                fwd(stage_r-1)
+                edge_mask("X", except=[FRONT, TOP])
+                  rounding_edge_mask(l=stage_w, r=stage_r, spin=-90);
+
     }
 
 }
