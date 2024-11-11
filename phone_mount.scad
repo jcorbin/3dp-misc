@@ -3,17 +3,12 @@ include <BOSL2/rounding.scad>
 
 use <grid2.scad>
 
+/* [Gridfinity Platform] */
+
 // Platform size in grid units.
 platform_size = [ 2, 2 ];
 
-// Charging puck cylinder size: x=diameter, y=height.
-puck_size = [ 56, 5 ];
-
-// Charging puck holder inset size; thru hole diameter will be puck diameter reduce by 2 * this value.
-puck_inset = 5;
-
-// Cable slot exit channel size at bottom of puck mount hole.
-cableslot_size = [ 5, 12 ];
+/* [Front Face] */
 
 // Phone holder tray size: xy should roughly match phone dimensions, z sets tactile rim depth.
 tray_size = [ 69, 150, 7 ];
@@ -30,6 +25,19 @@ tray_angle = 65;
 // How far up the phone tray to place the puck mount; proportion of tray_size.y space.
 tray_mount_loc = 0.75;
 
+/* [Charing Puck] */
+
+// Charging puck cylinder size: x=diameter, y=height.
+puck_size = [ 56, 5 ];
+
+// Charging puck holder inset size; thru hole diameter will be puck diameter reduce by 2 * this value.
+puck_inset = 5;
+
+// Cable slot exit channel size at bottom of puck mount hole.
+cableslot_size = [ 5, 12 ];
+
+/* [Backstage Wire Management] */
+
 // Wire exit tunnel diameter, bored thru the rear grid locations.
 wire_bore_d = 20;
 
@@ -41,6 +49,14 @@ wire_stage_width = 1;
 
 // Wire management back stage depth.
 wire_stage_depth = 40;
+
+/* [Dummy Phone] */
+
+// Size of dummy phone for fit modeling.
+phone_dummy = [ 71.5, 146.5, 8 ];
+
+// Translation along the tray face vector, relative to "on magnet mount".
+phone_dummy_move = 0; // -42 will make it sit in the tray lip
 
 /* [Geometry Detail] */
 
@@ -136,12 +152,13 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
 
 diff() body() {
 
-  face_up = apply(xrot(-(90-tray_angle)), UP);
-
-  // phone dummy
-  // move(face_up * -42)
-  attach("face_mount", BOTTOM)
-    %cuboid([71.5, 146.5, 8], rounding=12, edges="Z");
+  // dummy phone
+  if (phone_dummy.x*phone_dummy.y*phone_dummy.z > 0) {
+    face_up = apply(xrot(-(90-tray_angle)), UP);
+    move(face_up * phone_dummy_move)
+    attach("face_mount", BOTTOM)
+      %cuboid(phone_dummy, rounding=12, edges="Z");
+  }
 
   // puck mount
   attach("face_mount", BOTTOM, overlap=puck_size.y)
