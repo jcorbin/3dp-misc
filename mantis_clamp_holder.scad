@@ -63,7 +63,7 @@ module holder(anchor = CENTER, spin = 0, orient = UP) {
           diff()
           cuboid([ 41.5, 46, 46, ], anchor=FRONT+TOP) {
             tag("remove")
-            back(10)
+            back(5)
             attach(TOP, BOTTOM, overlap=4)
               cuboid(size=[45, 45, 14], rounding=45/2, edges=[
                 [0, 0, 0, 0], // yz -- +- -+ ++
