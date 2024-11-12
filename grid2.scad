@@ -40,7 +40,7 @@ module grid_foot(
   h4 = max(0, h - h3 - h2 - h1);
   th = h1 + h2 + h3 + h4;
 
-  r3 = grid_rounding - grid_tolerance;
+  r3 = (grid_rounding - grid_tolerance)/2;
   r2 = 3.2/2; // TODO maths?
   r1 = 1.6/2; // TODO maths?
 
@@ -99,7 +99,7 @@ function grid_body(size = [grid_unit, grid_unit], h = 7) = let (
   [ "h3", 2.15 ],
   [ "h4", h - h3 - h2 - h1 ],
   [ "size", scalar_vec3(size - [grid_tolerance, grid_tolerance], h4) ],
-  [ "rounding", grid_rounding - grid_tolerance ]
+  [ "rounding", (grid_rounding - grid_tolerance)/2 ]
 ];
 
 module grid_body(size = [grid_unit, grid_unit], h = 7, anchor = CENTER, spin = 0, orient = UP) {
