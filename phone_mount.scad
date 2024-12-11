@@ -130,6 +130,7 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
           lip_iround = lip_oround - tray_lip.x;
 
           attach(TOP, BOTTOM)
+          tag_scope("lip")
           diff()
           cuboid(lip_size, rounding=lip_oround, edges="Z")
             tag("remove")
