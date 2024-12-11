@@ -11,7 +11,7 @@ platform_size = [ 2, 2 ];
 /* [Front Face] */
 
 // Phone holder tray size: xy should roughly match phone dimensions, z sets tactile rim depth.
-tray_size = [ 69, 150, 7 ];
+tray_size = [ 59, 120, 7 ];
 
 // Set back tray face from front edge by this amount
 tray_back = 12;
@@ -120,7 +120,7 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
           position(FRONT+TOP)
           top_half(s=max(tray_size)*2)
           xrot(tray_angle)
-            cuboid(tray_size, rounding=tray_size.x/3, edges=[
+            cuboid(tray_size, rounding=tray_size.x/2, edges=[
               [0, 0, 0, 0], // yz -- +- -+ ++
               [0, 0, 0, 0], // xz
               [0, 0, 1, 1], // xy
@@ -217,48 +217,49 @@ diff() body() {
         ]);
     }
 
-    // cable management
-    fh = struct_val(grid_foot(), "profile_height");
-    bh = fh + sin(tray_angle) * tray_size.y * tray_mount_loc - puck_size.x/2;
+  // cable management
+  fh = struct_val(grid_foot(), "profile_height");
+  bh = fh + sin(tray_angle) * tray_size.y * tray_mount_loc - puck_size.x/2;
 
-    tag("remove")
-    back( 42 * (platform_size.y-1)/2 )
+  tag("remove")
+  back( 42 * (platform_size.y-1)/2 )
+  down(fh)
+  position(BOTTOM) {
+    // bore holes to tunnel riser
+    down($eps)
     down(fh)
-    position(BOTTOM) {
-      // bore holes to tunnel riser
-      down($eps)
-      down(fh)
-      xcopies(spacing=42, n=wire_bore_n)
-        cyl(d=wire_bore_d, h=bh/2+2*$eps, anchor=BOTTOM);
+    xcopies(spacing=42, n=wire_bore_n)
+      cyl(d=wire_bore_d, h=bh/2+2*$eps, anchor=BOTTOM);
 
-      stage_gw = max(1, wire_stage_width);
-      stage_w = 42*stage_gw + wire_bore_d;
-      stage_r = wire_bore_d/2;
-      stage_taper_to = stage_r*2;
-      stage_fudge = 10;
+    stage_gw = max(1, wire_stage_width);
+    stage_w = 42*stage_gw + wire_bore_d;
+    stage_r = wire_bore_d/2;
+    stage_taper_to = stage_r*2;
+    stage_fudge = 10;
+    rr = stage_r*.95;
 
-      // backstage area
-      back(stage_fudge)
-      up(bh/2 + $eps)
-        prismoid(
-          size1=[stage_w, wire_stage_depth],
-          size2=[stage_w, stage_taper_to],
-          h=bh,
-          shift=[0, wire_stage_depth - stage_taper_to ],
-          rounding=stage_r,
-          anchor=BOTTOM)
-            attach(BOTTOM, TOP, overlap=$eps)
-              cuboid([stage_w, wire_stage_depth, 7 + $eps],
-              rounding=stage_r, edges=[
-                [0, 0, 0, 0], // yz -- +- -+ ++
-                [0, 0, 0, 0], // xz
-                [1, 1, 0, 0], // xy
-              ])
-                fwd(stage_r-1)
-                edge_mask("X", except=[FRONT, TOP])
-                  rounding_edge_mask(l=stage_w, r=stage_r, spin=-90);
+    // backstage area
+    back(stage_fudge)
+    up(bh/2 + $eps)
+      prismoid(
+        size1=[stage_w, wire_stage_depth],
+        size2=[stage_w, stage_taper_to],
+        h=bh,
+        shift=[0, wire_stage_depth - stage_taper_to ],
+        rounding=stage_r,
+        anchor=BOTTOM)
+          attach(BOTTOM, TOP, overlap=$eps)
+            cuboid([stage_w, wire_stage_depth, 7 + $eps],
+            rounding=stage_r, edges=[
+              [0, 0, 0, 0], // yz -- +- -+ ++
+              [0, 0, 0, 0], // xz
+              [1, 1, 0, 0], // xy
+            ])
+              fwd(rr-1)
+              edge_mask("X", except=[FRONT, TOP])
+                rounding_edge_mask(l=stage_w, r=rr, spin=-90);
 
-    }
+  }
 
 }
 
