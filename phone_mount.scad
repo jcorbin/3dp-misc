@@ -53,7 +53,11 @@ wire_stage_depth = 40;
 /* [Dummy Phone] */
 
 // Size of dummy phone for fit modeling.
-phone_dummy = [ 71.5, 146.5, 8 ];
+phone_dummy = [ 71.5, 149.5, 9 ];
+
+phone_dummy_camera = [ 40, 40, 4 ];
+
+phone_dummy_camera_inset = 4;
 
 // Translation along the tray face vector, relative to "on magnet mount".
 phone_dummy_move = 0; // -42 will make it sit in the tray lip
@@ -151,15 +155,45 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+module dummy(anchor = CENTER, spin = 0, orient = UP) {
+  size = phone_dummy + [ 0, 0, phone_dummy_camera.z ];
+
+  if (size.x*size.y*size.z > 0) {
+    case_bottom = [ 0, 0, phone_dummy_camera.z/2 - phone_dummy.z/2 ];
+
+    attachable(anchor, spin, orient,
+      size=size,
+      anchors=[
+        named_anchor("mount", case_bottom, DOWN),
+      ]) {
+
+      up(size.z/2)
+      down(phone_dummy.z/2)
+      cuboid(phone_dummy, rounding=12, edges="Z")
+
+        left(phone_dummy_camera_inset)
+        left(phone_dummy_camera.x/2)
+        right(phone_dummy.x/2)
+
+        back(phone_dummy_camera_inset)
+        back(phone_dummy_camera.y/2)
+        fwd(phone_dummy.y/2)
+
+        attach(BOTTOM, TOP, overlap=$eps)
+        cuboid(phone_dummy_camera + [0, 0, $eps], rounding=12, edges="Z");
+
+      children();
+    }
+  }
+}
+
 diff() body() {
 
   // dummy phone
-  if (phone_dummy.x*phone_dummy.y*phone_dummy.z > 0) {
-    face_up = apply(xrot(-(90-tray_angle)), UP);
-    move(face_up * phone_dummy_move)
-    attach("face_mount", BOTTOM)
-      %cuboid(phone_dummy, rounding=12, edges="Z");
-  }
+  face_up = apply(xrot(-(90-tray_angle)), UP);
+  move(face_up * phone_dummy_move)
+  attach("face_mount", "mount")
+    %dummy(spin=180);
 
   // puck mount
   attach("face_mount", BOTTOM, overlap=puck_size.y)
