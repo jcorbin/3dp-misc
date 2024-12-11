@@ -54,6 +54,7 @@ module grid_foot(
   ) {
 
     down(th/2)
+    tag_scope("grid_foot")
     diff()
     prismoid(
       size1=size1,
