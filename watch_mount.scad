@@ -52,7 +52,7 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
   size1 = 42*platform_size;
   gh = 7;
 
-  fh = struct_val(grid_foot(), "profile_height");
+  fh = struct_val(grid_foot(), "height");
   height = gh + body_lift + body_taper + 21;
 
 

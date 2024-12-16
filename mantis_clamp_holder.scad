@@ -35,7 +35,7 @@ module stand(anchor = CENTER, spin = 0, orient = UP) {
 
 module holder(anchor = CENTER, spin = 0, orient = UP) {
   gh = platform_size.z * 7;
-  fh = struct_val(grid_foot(), "profile_height");
+  fh = struct_val(grid_foot(), "height");
 
   h = 7 + 46 * sqrt(2)/2 - 7.25;
 

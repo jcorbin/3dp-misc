@@ -80,7 +80,7 @@ module __customizer_limit__() {}
 module body(anchor = CENTER, spin = 0, orient = UP) {
   size1 = 42*platform_size;
   gh = 7;
-  fh = struct_val(grid_foot(), "profile_height");
+  fh = struct_val(grid_foot(), "height");
   height = gh + sin(tray_angle) * tray_size.y;
 
   grid_front_top = [0, -size1.y/2 + tray_back, -height/2 + gh];
@@ -218,7 +218,7 @@ diff() body() {
     }
 
   // cable management
-  fh = struct_val(grid_foot(), "profile_height");
+  fh = struct_val(grid_foot(), "height");
   bh = fh + sin(tray_angle) * tray_size.y * tray_mount_loc - puck_size.x/2;
 
   tag("remove")
