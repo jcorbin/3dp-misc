@@ -9,6 +9,14 @@ use <grid2.scad>
 // Platform size in grid units.
 platform_size = [ 2, 2, 6 ];
 
+/* [Airpod dimension] */
+
+airpod_size = [ 61, 31, 22.25 ];
+
+airpod_round = 11;
+
+channel_length = 42 - airpod_size.y + 42/2 - 20/2;
+
 /* [Designed Supports] */
 
 // Interface gap between support and supported part.
@@ -200,10 +208,6 @@ module block(anchor = CENTER, spin = 0, orient = UP) {
       grid_copies(spacing=42 /* grid_unit */, n=[platform_size.x, platform_size.y])
       cuboid([20, 20, $parent_size.z + 2*$eps], rounding=5, edges="Z");
 
-    airpod_size = [ 62, 32, 24 ];
-    airpod_round = min(airpod_size)/2;
-    channel_length = 42 - airpod_size.y + (42 - 20)/2;
-
     tag("remove")
     // #up(63)
       attach(FRONT, BACK, overlap=airpod_size.y)
@@ -216,8 +220,8 @@ module block(anchor = CENTER, spin = 0, orient = UP) {
           [0, 0, 1, 1], // xy
         ]) {
           fwd(airpod_round/2)
-          xcopies(spacing=21, n=2)
-          support_wall(airpod_size.z, airpod_size.y - airpod_round);
+          xcopies(spacing=19, n=2)
+          support_wall(airpod_size.z, airpod_size.y - airpod_round, width=1.4);
 
           attach(BACK, FRONT, overlap=2)
           cuboid([16, channel_length + 2 + 6, 10], rounding=5, edges="Y")
