@@ -6,10 +6,10 @@ use <grid2.scad>
 /* [Body dimension] */
 
 // Platform size in grid units.
-platform_size = [ 2, 1 ];
+platform_size = [ 2, 2 ];
 
 // Height of blending/taper hull from grid platform to pillar.
-body_taper = 14;
+body_taper = 21;
 
 // Height of vertical pillar after taper before sphere cap.
 body_lift = 21;
@@ -20,18 +20,24 @@ body_lift = 21;
 puck_size = [ 28, 5 ];
 
 // Charging puck holder inset size; thru hole diameter will be puck diameter reduce by 2 * this value.
-puck_inset = [ 5, 25 ];
+puck_inset = [ 5, 32 ];
 
 // Cable slot exit channel size at bottom of puck mount hole.
-cableslot_size = [ 7, 14, 30 ];
+cableslot_size = [ 7, 14, 37 ];
 
 /* [Backstage Wire Management] */
 
 // Wire exit tunnel diameter, bored thru the rear grid locations.
-wire_bore = [ 18, 18 ];
+wire_bore = [ 18, 14 ];
 
 // Wire exit bore count.
 wire_bore_n = 2;
+
+// Wire bore placement, necessary when platform_size.y is even, should be a 21-multiple; can be 0 for a 2x1 platform, maybe also if you're doing odd things like a 2x3 platform.
+bore_at = 21;
+
+// Enable wire bore development cutaway.
+bore_cutaway = $preview;
 
 /* [Geometry Detail] */
 
@@ -51,25 +57,28 @@ module __customizer_limit__() {}
 module body(anchor = CENTER, spin = 0, orient = UP) {
   size1 = 42*platform_size;
   gh = 7;
-
   fh = struct_val(grid_foot(), "height");
-  height = gh + body_lift + body_taper + 21;
-
-
-  size = [size1.x, size1.y, height];
 
   body_info = grid_body(size1, h=gh);
   h4 = struct_val(body_info, "h4");
   body_size = struct_val(body_info, "size");
-
-  main_d = body_size.y;
+  main_d = 41.5; // body_size.y;
   face_d = sqrt(2*(main_d/2)^2);
+  setback = (body_size.y - main_d)/2;
+
+  sphere_d = main_d/2;
+
+  height = gh + body_lift + body_taper + sphere_d;
+  echo(str("wat ", [gh, body_lift, body_taper, sphere_d]));
+
+  size = [size1.x, size1.y, height];
 
   attachable(anchor, spin, orient,
     size=size,
     anchors=[
       named_anchor("mount",
         [0, -size.y/2, size.z/2]
+          + BACK * setback
           + BACK * main_d/2
           + FWD * main_d/4
           + DOWN * main_d/4
@@ -77,46 +86,49 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
     ]
   ) {
 
+    trans_if(bore_cutaway)
+    cut_if(bore_cutaway)
     down(height/2)
-    up(fh)
+    up(fh/2)
     union() {
 
       grid_copies(spacing=42, n=platform_size)
       up($eps)
         grid_foot(h=$eps, anchor=TOP);
 
+      up(fh/2)
       conv_hull()
       grid_body(size1, h=gh, anchor=BOTTOM) {
         attach(TOP, BOTTOM)
           cyl(d=main_d, h=body_taper);
         attach(TOP, BOTTOM)
         xcopies(spacing=42)
-          cyl(d=21, h=body_taper);
+          cyl(d=sphere_d, h=body_taper);
       }
 
+      up(fh/2)
       down($eps)
       up(h4 + body_taper)
       conv_hull()
       {
         cyl(d=main_d, h=body_lift + 2*$eps, anchor=BOTTOM);
         xcopies(spacing=42)
-          cyl(d=21, h=body_lift + 2*$eps, anchor=BOTTOM);
+          cyl(d=sphere_d, h=body_lift + 2*$eps, anchor=BOTTOM);
       }
 
+      up(fh/2)
       up(h4 + body_taper + body_lift)
       conv_hull()
       difference() {
         top_half() {
           sphere(d=main_d);
           xcopies(spacing=42)
-            sphere(d=21);
+            sphere(d=sphere_d);
         }
-
         fwd(main_d/2)
         xrot(45)
         up(50)
           cube(100, center=true);
-
       }
 
     }
@@ -125,60 +137,95 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+module cut_if(wen) {
+  if (wen) right_half(s=500) children();
+  else children();
+}
+
+module trans_if(wen) {
+  if (wen) %children();
+  else children();
+}
+
+module debug_if(wen) {
+  if (wen) #children();
+  else children();
+}
+
 // body()
 // {
 //   %show_anchors();
 //   #cube($parent_size, center=true);
 // }
 
-diff() body() {
+diff() body() debug_if(bore_cutaway) {
 
   // puck mount
-  attach("mount", BOTTOM, overlap=puck_size.y)
-    tag("remove")
-    cyl(d=puck_size.x, h=puck_size.y+$eps) {
-      attach(BOTTOM, TOP, overlap=$eps)
-        cyl(d=puck_size.x - 2*puck_inset.x, h=puck_inset.y+$eps);
-      // cable channel in puck hole
-      zrot(-45)
-      back(puck_inset.x+1)
-      up($eps)
-      position(FRONT+TOP)
-        cuboid(
-          [
-            cableslot_size.x,
-            cableslot_size.z + $eps,
-            cableslot_size.y+puck_inset.x+1
-          ],
-          rounding=cableslot_size.x/3, edges=[
-            [0, 0, 0, 0], // yz -- +- -+ ++
-            [0, 0, 1, 1], // xz
-            [0, 0, 0, 0], // xy
-          ],
-          anchor=BOTTOM+BACK,
-          orient=FRONT
-        );
-    }
-
-  // bore holes to tunnel riser
   tag("remove")
-  // #down(42)
-    up(14 + wire_bore.y)
-    attach(BOTTOM, TOP)
-      down($eps)
+  attach("mount", BOTTOM, overlap=puck_size.y)
+    cyl(d=puck_size.x, h=puck_size.y+$eps);
+
+  cavity_at = 7 + body_taper;
+  cavity_size = [42 + wire_bore.x, wire_bore.x, 14];
+  clip_inset = cavity_size.y/2 - 1; // mmmm fudge
+
+  // puck inset center bore
+  tag("remove")
+  front_half(y=clip_inset)
+  attach("mount", TOP, overlap=puck_size.y + puck_inset.y - $eps)
+    cyl(d=puck_size.x - 2*puck_inset.x, h=puck_inset.y + $eps);
+
+  // cable channel in puck hole
+  tag("remove")
+  front_half(y=clip_inset)
+    attach("mount", BOTTOM, overlap=cableslot_size.z)
+    zrot(-45)
+    fwd(cableslot_size.y/2)
+    fwd(puck_inset.x+1)
+      cuboid([
+        cableslot_size.x,
+        cableslot_size.y+puck_inset.x+1,
+        cableslot_size.z + $eps
+      ], rounding=cableslot_size.x/3, edges=[
+        [0, 0, 0, 0], // yz -- +- -+ ++
+        [0, 0, 0, 0], // xz
+        [1, 1, 0, 0], // xy
+      ]);
+
+  // interior horizontal cavity
+  tag("remove")
+    // up(14 + wire_bore.x)
+    up(cavity_at)
+    attach(BOTTOM, TOP, overlap=cavity_size.z/2)
       cuboid(
-        [42 + wire_bore.x, wire_bore.x, 14+$eps],
-        rounding=wire_bore.x/2,
-        // edges="Z",
-        edges=[
+      cavity_size,
+        rounding=cavity_size.y/2, edges=[
           [0, 0, 1, 1], // yz -- +- -+ ++
           [0, 0, 0, 0], // xz
           [1, 1, 1, 1], // xy
-        ],
-        anchor=BOTTOM+LEFT
-      )
-        xcopies(spacing=42, n=2)
-        attach(BOTTOM, TOP, overlap=$eps)
-          cyl(d=wire_bore.x, h=wire_bore.y + $eps, anchor=BOTTOM);
+        ]);
+
+ 
+  if (bore_at != 0) {
+    travel_y = cavity_at - wire_bore.y/2;
+    travel_x = -bore_at;
+    travel_len = sqrt(travel_y^2 + travel_x^2);
+    travel_deg = atan2(travel_y, -travel_x);
+
+    // travel from interior cavity to bore holes
+    tag("remove")
+    xcopies(spacing=42, n=2)
+      up(cavity_at)
+      attach(BOTTOM, TOP)
+      xrot(-90+travel_deg)
+        cyl(d=wire_bore.y, h=travel_len);
+  }
+
+  // bore holes to tunnel riser
+  tag("remove")
+  xcopies(spacing=42, n=2)
+    back(bore_at)
+    attach(BOTTOM, TOP, overlap=wire_bore.y)
+      cyl(d=wire_bore.x, h=wire_bore.y + $eps, anchor=BOTTOM, rounding2=wire_bore.x/2);
 
 }
