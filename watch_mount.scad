@@ -20,7 +20,7 @@ body_lift = 21;
 puck_size = [ 28, 5 ];
 
 // Charging puck holder inset size; thru hole diameter will be puck diameter reduce by 2 * this value.
-puck_inset = [ 5, 32 ];
+puck_inset = [ 5, 28 ];
 
 // Cable slot exit channel size at bottom of puck mount hole.
 cableslot_size = [ 7, 14, 37 ];
@@ -54,7 +54,7 @@ $eps = 0.01;
 
 module __customizer_limit__() {}
 
-module body(anchor = CENTER, spin = 0, orient = UP) {
+module main(anchor = CENTER, spin = 0, orient = UP, alone = false) {
   size1 = 42*platform_size;
   gh = 7;
   fh = struct_val(grid_foot(), "height");
@@ -69,7 +69,6 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
   sphere_d = main_d/2;
 
   height = gh + body_lift + body_taper + sphere_d;
-  echo(str("wat ", [gh, body_lift, body_taper, sphere_d]));
 
   size = [size1.x, size1.y, height];
 
@@ -86,16 +85,18 @@ module body(anchor = CENTER, spin = 0, orient = UP) {
     ]
   ) {
 
-    trans_if(bore_cutaway)
-    cut_if(bore_cutaway)
+    trans_if(bore_cutaway && !alone)
+    cut_if(bore_cutaway && !alone)
     down(height/2)
     up(fh/2)
     union() {
 
+      // grid interface
       grid_copies(spacing=42, n=platform_size)
       up($eps)
         grid_foot(h=$eps, anchor=TOP);
 
+      // taper from grid platfrom to mount profile
       up(fh/2)
       conv_hull()
       grid_body(size1, h=gh, anchor=BOTTOM) {
@@ -152,13 +153,13 @@ module debug_if(wen) {
   else children();
 }
 
-// body()
+// main(alone=true)
 // {
 //   %show_anchors();
 //   #cube($parent_size, center=true);
 // }
 
-diff() body() debug_if(bore_cutaway) {
+diff() main() debug_if(bore_cutaway) {
 
   // puck mount
   tag("remove")
@@ -167,7 +168,7 @@ diff() body() debug_if(bore_cutaway) {
 
   cavity_at = 7 + body_taper;
   cavity_size = [42 + wire_bore.x, wire_bore.x, 14];
-  clip_inset = cavity_size.y/2 - 1; // mmmm fudge
+  clip_inset = cavity_size.y/2 - 3; // mmmm fudge
 
   // puck inset center bore
   tag("remove")
@@ -175,18 +176,24 @@ diff() body() debug_if(bore_cutaway) {
   attach("mount", TOP, overlap=puck_size.y + puck_inset.y - $eps)
     cyl(d=puck_size.x - 2*puck_inset.x, h=puck_inset.y + $eps);
 
+  slot_rot = -22.5;
+
+  slot_size = [
+    cableslot_size.x,
+    cableslot_size.y+puck_inset.x+1,
+    cableslot_size.z + $eps
+  ];
+
+
   // cable channel in puck hole
   tag("remove")
   front_half(y=clip_inset)
-    attach("mount", BOTTOM, overlap=cableslot_size.z)
-    zrot(-45)
-    fwd(cableslot_size.y/2)
-    fwd(puck_inset.x+1)
-      cuboid([
-        cableslot_size.x,
-        cableslot_size.y+puck_inset.x+1,
-        cableslot_size.z + $eps
-      ], rounding=cableslot_size.x/3, edges=[
+    attach("mount", TOP, overlap=cableslot_size.z)
+    zrot(-55)
+    fwd((puck_size.x - slot_size.y)/2)
+    fwd(slot_size.y/2)
+    xrot(slot_rot, cp=[0, 0, slot_size.z/2])
+      cuboid(slot_size, rounding=cableslot_size.x/3, edges=[
         [0, 0, 0, 0], // yz -- +- -+ ++
         [0, 0, 0, 0], // xz
         [1, 1, 0, 0], // xy
@@ -194,7 +201,6 @@ diff() body() debug_if(bore_cutaway) {
 
   // interior horizontal cavity
   tag("remove")
-    // up(14 + wire_bore.x)
     up(cavity_at)
     attach(BOTTOM, TOP, overlap=cavity_size.z/2)
       cuboid(
@@ -205,7 +211,6 @@ diff() body() debug_if(bore_cutaway) {
           [1, 1, 1, 1], // xy
         ]);
 
- 
   if (bore_at != 0) {
     travel_y = cavity_at - wire_bore.y/2;
     travel_x = -bore_at;
