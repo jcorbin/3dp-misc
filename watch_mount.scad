@@ -9,10 +9,22 @@ use <grid2.scad>
 platform_size = [ 2, 2 ];
 
 // Height of blending/taper hull from grid platform to pillar.
-body_taper = 21;
+body_taper = 18;
 
 // Height of vertical pillar after taper before sphere cap.
 body_lift = 21;
+
+// Chamfer between lift cylinder and platform taper.
+body_chamfer = 3;
+
+// Diameter of the primary spherical mount.
+main_d = 41.5;
+
+// Diameter of the ancilllary shoulder spheres.
+shoulder_d = 20;
+
+// Offset between left and right shoulder sphere centers.
+shoulder_spacing = 42;
 
 /* [Charing Puck] */
 
@@ -54,6 +66,67 @@ $eps = 0.01;
 
 module __customizer_limit__() {}
 
+function mount_profile(extra=0) = let (
+  main = circle(d=main_d + 2*extra),
+  shoulder = circle(d=shoulder_d + 2*extra),
+  shoulder_off = shoulder_spacing/2,
+  pts = concat(
+    main,
+    left(shoulder_off, p=shoulder),
+    right(shoulder_off, p=shoulder)
+  ),
+  ix = hull2d_path(pts)
+) [for (i = ix) pts[i]];
+
+module mount(anchor = CENTER, spin = 0, orient = UP) {
+  size = [
+    shoulder_spacing + shoulder_d,
+    main_d,
+    main_d/2
+  ];
+  attachable(anchor, spin, orient, size=size) {
+    down(main_d/4)
+    difference() {
+
+      conv_hull() top_half() {
+        sphere(d=main_d);
+        xcopies(spacing=shoulder_spacing, n=2)
+          sphere(d=shoulder_d);
+      }
+
+      fwd(main_d/2)
+      xrot(45)
+      up(50)
+        cube(100, center=true);
+    }
+
+    children();
+  }
+}
+
+module mount_lift(anchor = CENTER, spin = 0, orient = UP) {
+  size = [
+    shoulder_spacing + shoulder_d + body_chamfer*2,
+    main_d + body_chamfer *2,
+    body_lift + main_d/2
+  ];
+
+  attachable(anchor, spin, orient, size=size) {
+
+    down(main_d/4)
+    down(body_lift/2)
+    offset_sweep(
+      mount_profile(),
+      height=body_lift + $eps,
+      bottom=os_mask(
+        mask2d_ogee(["step", [body_chamfer, body_chamfer]], excess=$eps),
+        out=true)
+    ) attach(TOP, BOTTOM) mount();
+
+    children();
+  }
+}
+
 module main(anchor = CENTER, spin = 0, orient = UP, alone = false) {
   size1 = 42*platform_size;
   gh = 7;
@@ -62,13 +135,10 @@ module main(anchor = CENTER, spin = 0, orient = UP, alone = false) {
   body_info = grid_body(size1, h=gh);
   h4 = struct_val(body_info, "h4");
   body_size = struct_val(body_info, "size");
-  main_d = 41.5; // body_size.y;
   face_d = sqrt(2*(main_d/2)^2);
   setback = (body_size.y - main_d)/2;
 
-  sphere_d = main_d/2;
-
-  height = gh + body_lift + body_taper + sphere_d;
+  height = gh + body_lift + body_taper + main_d/2;
 
   size = [size1.x, size1.y, height];
 
@@ -101,36 +171,13 @@ module main(anchor = CENTER, spin = 0, orient = UP, alone = false) {
       conv_hull()
       grid_body(size1, h=gh, anchor=BOTTOM) {
         attach(TOP, BOTTOM)
-          cyl(d=main_d, h=body_taper);
-        attach(TOP, BOTTOM)
-        xcopies(spacing=42)
-          cyl(d=sphere_d, h=body_taper);
+          linear_sweep(mount_profile(extra=body_chamfer), h=body_taper);
       }
 
       up(fh/2)
       down($eps)
       up(h4 + body_taper)
-      conv_hull()
-      {
-        cyl(d=main_d, h=body_lift + 2*$eps, anchor=BOTTOM);
-        xcopies(spacing=42)
-          cyl(d=sphere_d, h=body_lift + 2*$eps, anchor=BOTTOM);
-      }
-
-      up(fh/2)
-      up(h4 + body_taper + body_lift)
-      conv_hull()
-      difference() {
-        top_half() {
-          sphere(d=main_d);
-          xcopies(spacing=42)
-            sphere(d=sphere_d);
-        }
-        fwd(main_d/2)
-        xrot(45)
-        up(50)
-          cube(100, center=true);
-      }
+        mount_lift(anchor=BOTTOM);
 
     }
 
