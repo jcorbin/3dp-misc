@@ -9,19 +9,19 @@ use <grid2.scad>
 platform_size = [ 2, 2 ];
 
 // Height of blending/taper hull from grid platform to pillar.
-body_taper = 18;
+body_taper = 14;
 
 // Height of vertical pillar after taper before sphere cap.
-body_lift = 21;
+body_lift = 28;
 
 // Chamfer between lift cylinder and platform taper.
-body_chamfer = 3;
+body_chamfer = 1.5;
 
 // Diameter of the primary spherical mount.
 main_d = 41.5;
 
 // Diameter of the ancilllary shoulder spheres.
-shoulder_d = 20;
+shoulder_d = 21;
 
 // Offset between left and right shoulder sphere centers.
 shoulder_spacing = 42;
@@ -213,8 +213,9 @@ diff() main() debug_if(bore_cutaway) {
   attach("mount", BOTTOM, overlap=puck_size.y)
     cyl(d=puck_size.x, h=puck_size.y+$eps);
 
-  cavity_at = 7 + body_taper;
-  cavity_size = [42 + wire_bore.x, wire_bore.x, 14];
+  tunnel_to = body_taper + 7;
+  cavity_at = body_taper + 14;
+  cavity_size = [42 + wire_bore.x, wire_bore.x, 35];
   clip_inset = cavity_size.y/2 - 3; // mmmm fudge
 
   // puck inset center bore
@@ -230,7 +231,6 @@ diff() main() debug_if(bore_cutaway) {
     cableslot_size.y+puck_inset.x+1,
     cableslot_size.z + $eps
   ];
-
 
   // cable channel in puck hole
   tag("remove")
@@ -251,7 +251,7 @@ diff() main() debug_if(bore_cutaway) {
     up(cavity_at)
     attach(BOTTOM, TOP, overlap=cavity_size.z/2)
       cuboid(
-      cavity_size,
+        cavity_size,
         rounding=cavity_size.y/2, edges=[
           [0, 0, 1, 1], // yz -- +- -+ ++
           [0, 0, 0, 0], // xz
@@ -259,7 +259,7 @@ diff() main() debug_if(bore_cutaway) {
         ]);
 
   if (bore_at != 0) {
-    travel_y = cavity_at - wire_bore.y/2;
+    travel_y = tunnel_to - wire_bore.y/2;
     travel_x = -bore_at;
     travel_len = sqrt(travel_y^2 + travel_x^2);
     travel_deg = atan2(travel_y, -travel_x);
@@ -267,7 +267,7 @@ diff() main() debug_if(bore_cutaway) {
     // travel from interior cavity to bore holes
     tag("remove")
     xcopies(spacing=42, n=2)
-      up(cavity_at)
+      up(tunnel_to)
       attach(BOTTOM, TOP)
       xrot(-90+travel_deg)
         cyl(d=wire_bore.y, h=travel_len);
