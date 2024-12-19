@@ -259,7 +259,7 @@ diff() main() debug_if(bore_cutaway) {
         ]);
 
   if (bore_at != 0) {
-    travel_y = tunnel_to - wire_bore.y/2;
+    travel_y = tunnel_to - wire_bore.y/4;
     travel_x = -bore_at;
     travel_len = sqrt(travel_y^2 + travel_x^2);
     travel_deg = atan2(travel_y, -travel_x);
