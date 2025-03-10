@@ -1,5 +1,18 @@
 include <BOSL2/std.scad>;
 
+/* XXX layout notion
+ * - Rd: reader on a 3x2 module
+ * - Ho: holder on a 2x1 module
+ * - Tw: swab stand is a 2x2 twizzle rack
+ * - XX: swab discard bin in a 1x1 tall bin
+ * - Fr: fresh swabs could dispense from a similar 1x1 tall bin
+ *
+ * |Fr|Ca|XX|Tw|Tw|
+ * |Rd|Rd|Rd|Tw|Tw|
+ * |Rd|Rd|Rd|Ho|Ho|
+ *
+ */
+
 /* [Geometry Detail] */
 
 // Fragment minimum angle.
