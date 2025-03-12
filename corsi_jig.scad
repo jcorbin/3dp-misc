@@ -1,4 +1,5 @@
 include <BOSL2/std.scad>;
+include <BOSL2/metric_screws.scad>;
 
 /* [Geometry Detail] */
 
@@ -30,7 +31,7 @@ $eps = 0.01;
     fwd(extra/2)
     tag("remove") {
       attach(BOTTOM, TOP, overlap=5)
-        cyl(d=120 + 2*tol, h=10);
+        cyl(d=116 + 2*tol, h=10);
       move_copies([
         [-105/2, -105/2, 0],
         [ 105/2, -105/2, 0],
@@ -40,7 +41,7 @@ $eps = 0.01;
         [ 105/2,  105/2 + next, 0],
       ])
         attach(BOTTOM, TOP, overlap=5)
-        cyl(d=4.3 + tol, h=10);
+        cyl(d=4 + tol, h=10);
     }
 
   }
