@@ -40,7 +40,7 @@ module hole(size, h, entry = 0, tol = 0.5, decompose = false, anchor = CENTER, s
   layer = 0.2;
   nh = T + 2*tol;
   hr = size + tol;
-  retain = 0.5;
+  retain = tol + 0.5;
 
   attachable(anchor, spin, orient, size=[dc, D, h]) {
     union() {
