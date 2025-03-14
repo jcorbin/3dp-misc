@@ -100,19 +100,20 @@ module color_if(when, name, just=false) {
   else color(name) children();
 }
 
-module nut_insert(spec, h, entry = 0, retain = 0/* 0.4*/, tol = 0.5, decompose = false, anchor = CENTER, spin = 0, orient = UP) {
+module nut_insert(spec, h, entry = 0, retain = 0/* 0.4*/, bore_tol = 0.5, nut_tol = 0.2, decompose = false, anchor = CENTER, spin = 0, orient = UP) {
   N = nut_info(spec);
-  size = struct_val(N, "diameter");
+  BD = struct_val(N, "diameter");
   W = struct_val(N, "width");
   T = struct_val(N, "thickness");
-  D = W/cos(30);
+  ND = W/cos(30);
 
   // TODO assert h > T
 
   layer = 0.2;
-  hr = size + tol;
+  hr = BD + bore_tol;
+  nh = T + nut_tol;
 
-  attachable(anchor, spin, orient, size=[D, W, h]) {
+  attachable(anchor, spin, orient, size=[ND, W, h]) {
     union() {
       // shaft hole
       color_if(decompose, "#00990088")
@@ -122,14 +123,14 @@ module nut_insert(spec, h, entry = 0, retain = 0/* 0.4*/, tol = 0.5, decompose =
 
       // nut holder
       color_if(decompose, "#00009988", just=true)
-      cyl(d=D, h=T, $fn=6)
+      cyl(d=ND, h=nh, $fn=6)
 
         // slicer fixup/trick for nut/shaft ceiling transition
         color_if(decompose, "#ff000088")
         attach(TOP, FRONT, overlap=$eps)
         prismoid(
-          size1=[entry > 0 ? D : hr, layer+$eps],
-          size2=[size, layer+$eps], h=W)
+          size1=[entry > 0 ? ND : hr, layer+$eps],
+          size2=[BD, layer+$eps], h=W)
 
           attach(BACK, BOTTOM, overlap=$eps)
           cuboid([hr, W, layer+$eps])
@@ -141,16 +142,16 @@ module nut_insert(spec, h, entry = 0, retain = 0/* 0.4*/, tol = 0.5, decompose =
       if (entry > 0) {
         color_if(decompose, "#ff990088", just=true)
         tag_scope("hole_nut_access")
-        diff() cuboid([D, max(W/2, entry), T], anchor=BACK)
+        diff() cuboid([ND, max(W/2, entry), nh], anchor=BACK)
           // retention bumps
           if (retain > 0) {
-            rd = 2*retain + tol;
+            rd = 2*retain + bore_tol;
             tag("remove")
             color_if(decompose, "#ff990088")
               fwd(rd)
-              xcopies(spacing=[-D/2, D/2])
+              xcopies(spacing=[-ND/2, ND/2])
               position(BACK)
-              cyl(d=rd, h=T);
+              cyl(d=rd, h=nh);
           }
       }
 
