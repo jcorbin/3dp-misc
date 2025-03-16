@@ -20,8 +20,21 @@ mode = 0; // [0:Assembly, 1:Handle, 2:Plate, 100:Cross Section, 101:Outline Path
 // Enables preview cutaway for some parts.
 cutaway = true;
 
-// Mounting screw and nut spec.
-screw_spec = "M4";
+explode = 0; // TODO animate
+
+/* [Mount Screws & Nuts] */
+
+mount_screw_spec = "M4";
+
+mount_screw_length = 20;
+
+mount_screw_head = "button";
+
+mount_screw_drive = "hex";
+
+mount_screw_tol = 0.5;
+
+mount_nut_tol = [ 0.2, 0.1 ];
 
 /* [Handle Body Specs] */
 
@@ -51,8 +64,11 @@ plate_thickness = 5;
 // Mount plate Z-corner chamfer.
 plate_chamfer = 5;
 
-// Mount plate additional width/height beyond handle footprint.
-plate_margin = [ 10, 10 ];
+// Mount plate size.
+plate_size = [ 220, 100 ];
+
+// Through-plane size.
+thru_size = [ 500, 200, 5 ];
 
 /// dispatch / integration
 
@@ -114,24 +130,24 @@ module color_if(when, name, just=false) {
   else color(name) children();
 }
 
-module nut_insert(spec, h, nut_offset=0, entry = 0, retain = 0/* 0.4*/, bore_tol = 0.5, nut_tol = 0.2, decompose = false, anchor = CENTER, spin = 0, orient = UP) {
+module nut_insert(spec, h, nut_offset=0, entry = 0, retain = 0/* 0.4*/, bore_tol = mount_screw_tol, nut_tol = mount_nut_tol, decompose = false, anchor = CENTER, spin = 0, orient = UP) {
   N = nut_info(spec);
   BD = struct_val(N, "diameter");
-  W = struct_val(N, "width");
+  W = struct_val(N, "width") + 2*nut_tol.x;
   T = struct_val(N, "thickness");
   ND = W/cos(30);
 
   // TODO assert h > T
 
   layer = 0.2;
-  hr = BD + bore_tol;
-  nh = T + nut_tol;
+  hd = BD + bore_tol;
+  nh = T + nut_tol.y;
 
   attachable(anchor, spin, orient, size=[ND, W, h]) {
     union() {
       // shaft hole
       color_if(decompose, "#00990088")
-      cyl(d=hr, h=h);
+      cyl(d=hd, h=h);
 
       up(nut_offset) {
 
@@ -143,14 +159,14 @@ module nut_insert(spec, h, nut_offset=0, entry = 0, retain = 0/* 0.4*/, bore_tol
           color_if(decompose, "#ff000088")
           attach(TOP, FRONT, overlap=$eps)
           prismoid(
-            size1=[entry > 0 ? ND : hr, layer+$eps],
+            size1=[entry > 0 ? ND : hd, layer+$eps],
             size2=[BD, layer+$eps], h=W)
 
             attach(BACK, BOTTOM, overlap=$eps)
-            cuboid([hr, W, layer+$eps])
+            cuboid([hd, W, layer+$eps])
 
             attach(TOP, BOTTOM, overlap=$eps)
-            cuboid([hr, hr, layer+$eps]);
+            cuboid([hd, hd, layer+$eps]);
 
         // nut access
         if (entry > 0) {
@@ -192,11 +208,11 @@ module handle(anchor = CENTER, spin = 0, orient = UP) {
 
       tag("remove")
       attach("foot_left", BOTTOM, spin=-90, overlap=handle_bolt_depth)
-        nut_insert(screw_spec, handle_bolt_depth + $eps, nut_offset=nut_offset, entry=handle_size.y/2);
+        nut_insert(mount_screw_spec, handle_bolt_depth + $eps, nut_offset=nut_offset, entry=handle_size.y/2);
 
       tag("remove")
       attach("foot_right", BOTTOM, spin=90, overlap=handle_bolt_depth)
-        nut_insert(screw_spec, handle_bolt_depth + $eps, nut_offset=nut_offset, entry=handle_size.y/2);
+        nut_insert(mount_screw_spec, handle_bolt_depth + $eps, nut_offset=nut_offset, entry=handle_size.y/2);
 
       // attach("under") TODO grip features
     }
@@ -206,14 +222,9 @@ module handle(anchor = CENTER, spin = 0, orient = UP) {
 }
 
 module plate(anchor = CENTER, spin = 0, orient = UP) {
-  size = [
-    handle_body_size.x + 2*plate_margin.x,
-    handle_body_size.y + 2*plate_margin.y,
-    plate_thickness
-  ];
+  size = [plate_size.x, plate_size.y, plate_thickness];
 
-  S = screw_info(screw_spec);
-  bore_d = struct_val(S, "diameter");
+  bore_d = struct_val(screw_info(mount_screw_spec), "diameter") + mount_screw_tol;
 
   bolt_at = handle_body_size.x - handle_size.y;
 
@@ -231,14 +242,6 @@ module plate(anchor = CENTER, spin = 0, orient = UP) {
         cyl(d=bore_d, h=2*size.z);
 
       // TODO bolt head socket
-
-      // tag("remove")
-      // attach("foot_left", BOTTOM, spin=-90, overlap=10)
-      //   nut_insert(screw_spec, 10 + $eps, entry=11);
-
-      // tag("remove")
-      // attach("foot_right", BOTTOM, spin=90, overlap=10)
-      //   nut_insert(screw_spec, 10 + $eps, entry=11);
 
     }
 
@@ -260,7 +263,7 @@ module nut_insert_test(anchor = CENTER, spin = 0, orient = UP) {
     ])
       tag("remove")
       attach(TOP, BOTTOM, spin=-90, overlap=10+$eps)
-        nut_insert(screw_spec, 10 + 2*$eps, entry=11);
+        nut_insert(mount_screw_spec, 10 + 2*$eps, entry=11);
 
     children();
   }
@@ -281,38 +284,33 @@ module preview_cutaway(dir=BACK, at=0, r=[0, 0, 0], s=max(handle_body_size)*2.1)
 
 // Assembly
 if (mode == 0) {
-  explode = 20; // TODO animate
 
   preview_cutaway(s=1000)
   color_this("#0000aaff")
   plate() {
-
-    up(explode)
+    up(explode/2)
     attach(TOP, BOTTOM)
     color_this("#333333ff")
-    cuboid([400, 200, 5])
+    cuboid(thru_size)
 
-      attach(TOP, BOTTOM, overlap=-explode)
+      attach(TOP, BOTTOM, overlap=-explode/2)
       color_this("#00aa00ff")
       handle() {
+        nut_travel = (handle_size.x - struct_val(nut_info(mount_screw_spec), "width"))/2;
 
-        right(explode)
+        right(min(nut_travel, 2*explode))
         attach("left_nut", CENTER)
-          color("red") nut(screw_spec);
+          color("red") nut(mount_screw_spec);
 
-        left(explode)
+        left(min(nut_travel, 2*explode))
         attach("right_nut", CENTER)
-          color("red") nut(screw_spec);
+          color("red") nut(mount_screw_spec);
 
       }
 
-    screw_length = 14;
-    screw_head = "socket";
-    screw_drive = "hex";
-
-    attach([ "left_bolt", "right_bolt" ], BOTTOM, overlap=screw_length)
-      up(explode)
-      color("red") screw(screw_spec, head=screw_head, drive=screw_drive, length=screw_length);
+    attach([ "left_bolt", "right_bolt" ], BOTTOM, overlap=mount_screw_length)
+      up(min(mount_screw_length, 2*explode))
+      color("red") screw(mount_screw_spec, head=mount_screw_head, drive=mount_screw_drive, length=mount_screw_length);
   }
 
   // TODO nuts
@@ -351,7 +349,7 @@ else if (mode == 102) {
 
 // Nut Insert Negative
 else if (mode == 103) {
-  nut_insert(screw_spec, h=10, entry=5, decompose=true);
+  nut_insert(mount_screw_spec, h=10, entry=5, decompose=true);
 }
 
 // XXX module dev assist
