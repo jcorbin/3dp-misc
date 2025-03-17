@@ -1,17 +1,6 @@
 include <BOSL2/std.scad>;
 include <BOSL2/screws.scad>;
 
-/* [Geometry Detail] */
-
-// Fragment minimum angle.
-$fa = 4; // 1
-
-// Fragment minimum size.
-$fs = 0.2; // 0.05
-
-// Nudging value used when cutting out (differencing) solids, to avoid coincident face flicker.
-$eps = 0.01;
-
 /* [Part Selection] */
 
 // Which part to model
@@ -20,7 +9,7 @@ mode = 0; // [0:Assembly, 1:Handle, 2:Plate, 100:Cross Section, 101:Outline Path
 // Enables preview cutaway for some parts.
 cutaway = true;
 
-explode = 0; // TODO animate
+explode = 10; // TODO animate
 
 /* [Mount Screws & Nuts] */
 
@@ -69,6 +58,17 @@ plate_size = [ 220, 100 ];
 
 // Through-plane size.
 thru_size = [ 500, 200, 5 ];
+
+/* [Geometry Detail] */
+
+// Fragment minimum angle.
+$fa = 4; // 1
+
+// Fragment minimum size.
+$fs = 0.2; // 0.05
+
+// Nudging value used when cutting out (differencing) solids, to avoid coincident face flicker.
+$eps = 0.01;
 
 /// dispatch / integration
 
@@ -124,10 +124,78 @@ module handle_body(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
-module color_if(when, name, just=false) {
-  if (!when) children();
-  else if (just) color_this(name) children();
-  else color(name) children();
+module handle(anchor = CENTER, spin = 0, orient = UP) {
+  handle_bolt_depth = 20;
+  nut_offset = 5;
+
+  nut_at = handle_body_size.x - handle_size.y;
+  nut_depth = handle_bolt_depth/2 - nut_offset;
+
+  attachable(anchor, spin, orient, size=handle_body_size, anchors=[
+    named_anchor("left_nut",  [-nut_at/2, 0, -handle_body_size.z/2 + nut_depth], DOWN),
+    named_anchor("right_nut", [ nut_at/2, 0, -handle_body_size.z/2 + nut_depth], DOWN),
+  ]) {
+    tag_scope("handle")
+    diff()
+    handle_body(orient=UP) {
+
+      tag("remove")
+      attach("foot_left", BOTTOM, spin=-90, overlap=handle_bolt_depth)
+        nut_insert(mount_screw_spec, handle_bolt_depth + $eps, nut_offset=nut_offset, entry=handle_size.y/2);
+
+      tag("remove")
+      attach("foot_right", BOTTOM, spin=90, overlap=handle_bolt_depth)
+        nut_insert(mount_screw_spec, handle_bolt_depth + $eps, nut_offset=nut_offset, entry=handle_size.y/2);
+
+      // attach("under") TODO grip features
+    }
+
+    children();
+  }
+}
+
+function bolt_holes() = let (
+  bolt_at = handle_body_size.x - handle_size.y,
+  bore_d = struct_val(screw_info(mount_screw_spec), "diameter") + mount_screw_tol
+) [
+  [ "at", bolt_at ],
+  [ "diameter", bore_d ],
+];
+
+module bolt_holes(h, anchor = CENTER, spin = 0, orient = UP) {
+  info = bolt_holes();
+  bore_d = struct_val(info, "diameter");
+  bolt_at = struct_val(info, "at");
+
+  attachable(anchor, spin, orient, size=[ bolt_at + bore_d, bore_d, h ]) {
+    tag("remove")
+    xcopies(spacing=bolt_at)
+      cyl(d=bore_d, h=h + 2*$eps);
+
+    // TODO head socket recess wen
+
+    children();
+  }
+}
+
+module plate(anchor = CENTER, spin = 0, orient = UP) {
+  size = [plate_size.x, plate_size.y, plate_thickness];
+
+  attachable(anchor, spin, orient, size=size, anchors=let (
+    bolt_at = struct_val(bolt_holes(), "at")
+  ) [
+    named_anchor("left_bolt",  [-bolt_at/2, 0, -size.z/2], DOWN),
+    named_anchor("right_bolt", [ bolt_at/2, 0, -size.z/2], DOWN),
+  ]) {
+    diff()
+    cuboid(size, chamfer=plate_chamfer, edges="Z")
+      attach(TOP, BOTTOM, overlap=size.z + $eps)
+      bolt_holes(size.z);
+
+    // TODO ribs?
+
+    children();
+  }
 }
 
 module nut_insert(spec, h, nut_offset=0, entry = 0, retain = 0/* 0.4*/, bore_tol = mount_screw_tol, nut_tol = mount_nut_tol, decompose = false, anchor = CENTER, spin = 0, orient = UP) {
@@ -192,63 +260,6 @@ module nut_insert(spec, h, nut_offset=0, entry = 0, retain = 0/* 0.4*/, bore_tol
   }
 }
 
-module handle(anchor = CENTER, spin = 0, orient = UP) {
-  handle_bolt_depth = 20;
-  nut_offset = 5;
-
-  nut_at = handle_body_size.x - handle_size.y;
-  nut_depth = handle_bolt_depth/2 - nut_offset;
-
-  attachable(anchor, spin, orient, size=handle_body_size, anchors=[
-    named_anchor("left_nut",  [-nut_at/2, 0, -handle_body_size.z/2 + nut_depth], DOWN),
-    named_anchor("right_nut", [ nut_at/2, 0, -handle_body_size.z/2 + nut_depth], DOWN),
-  ]) {
-    diff()
-    handle_body(orient=UP) {
-
-      tag("remove")
-      attach("foot_left", BOTTOM, spin=-90, overlap=handle_bolt_depth)
-        nut_insert(mount_screw_spec, handle_bolt_depth + $eps, nut_offset=nut_offset, entry=handle_size.y/2);
-
-      tag("remove")
-      attach("foot_right", BOTTOM, spin=90, overlap=handle_bolt_depth)
-        nut_insert(mount_screw_spec, handle_bolt_depth + $eps, nut_offset=nut_offset, entry=handle_size.y/2);
-
-      // attach("under") TODO grip features
-    }
-
-    children();
-  }
-}
-
-module plate(anchor = CENTER, spin = 0, orient = UP) {
-  size = [plate_size.x, plate_size.y, plate_thickness];
-
-  bore_d = struct_val(screw_info(mount_screw_spec), "diameter") + mount_screw_tol;
-
-  bolt_at = handle_body_size.x - handle_size.y;
-
-  attachable(anchor, spin, orient, size=size, anchors=[
-    named_anchor("left_bolt",  [-bolt_at/2, 0, -size.z/2], DOWN),
-    named_anchor("right_bolt", [ bolt_at/2, 0, -size.z/2], DOWN),
-  ]) {
-    // TODO ribs?
-    diff()
-    cuboid(size, chamfer=plate_chamfer, edges="Z") {
-
-      // bolt holes
-      tag("remove")
-      xcopies(spacing=bolt_at)
-        cyl(d=bore_d, h=2*size.z);
-
-      // TODO bolt head socket
-
-    }
-
-    children();
-  }
-}
-
 module nut_insert_test(anchor = CENTER, spin = 0, orient = UP) {
   attachable(anchor, spin, orient, size=[
     handle_size.y,
@@ -269,6 +280,12 @@ module nut_insert_test(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+module color_if(when, name, just=false) {
+  if (!when) children();
+  else if (just) color_this(name) children();
+  else color(name) children();
+}
+
 module preview_cutaway(dir=BACK, at=0, r=[0, 0, 0], s=max(handle_body_size)*2.1) {
   if (cutaway && $preview) {
     difference() {
@@ -284,37 +301,34 @@ module preview_cutaway(dir=BACK, at=0, r=[0, 0, 0], s=max(handle_body_size)*2.1)
 
 // Assembly
 if (mode == 0) {
+  preview_cutaway(s=2*max(concat(thru_size, plate_size)))
+  color_this("#0000aaff") plate() {
 
-  preview_cutaway(s=1000)
-  color_this("#0000aaff")
-  plate() {
     up(explode/2)
     attach(TOP, BOTTOM)
-    color_this("#333333ff")
-    cuboid(thru_size)
+    color_this("#333333ff") diff() cuboid(thru_size) {
 
+      tag("remove")
+      attach(TOP, BOTTOM, overlap=thru_size.z + $eps)
+        bolt_holes(thru_size.z);
+
+      tag("keep")
       attach(TOP, BOTTOM, overlap=-explode/2)
-      color_this("#00aa00ff")
-      handle() {
-        nut_travel = (handle_size.x - struct_val(nut_info(mount_screw_spec), "width"))/2;
-
-        right(min(nut_travel, 2*explode))
-        attach("left_nut", CENTER)
+      color_this("#00aa00ff") handle()
+        let (
+          nut_travel = (handle_size.x - struct_val(nut_info(mount_screw_spec), "width"))/2,
+          nut_xplo = min(nut_travel, 2*explode)
+        )
+          attach([ "left_nut", "right_nut" ], CENTER)
+          translate([ $idx % 2 == 0 ? -1 : 1, 0, 0 ] * nut_xplo)
           color("red") nut(mount_screw_spec);
 
-        left(min(nut_travel, 2*explode))
-        attach("right_nut", CENTER)
-          color("red") nut(mount_screw_spec);
-
-      }
+    }
 
     attach([ "left_bolt", "right_bolt" ], BOTTOM, overlap=mount_screw_length)
       up(min(mount_screw_length, 2*explode))
       color("red") screw(mount_screw_spec, head=mount_screw_head, drive=mount_screw_drive, length=mount_screw_length);
   }
-
-  // TODO nuts
-  // TODO bolts
 }
 
 // Handle
@@ -370,4 +384,3 @@ else if (mode == 103) {
 //     children();
 //   }
 // }
-
