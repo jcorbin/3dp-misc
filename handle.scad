@@ -168,8 +168,8 @@ module bolt_holes(h, anchor = CENTER, spin = 0, orient = UP) {
   bolt_at = struct_val(info, "at");
 
   attachable(anchor, spin, orient, size=[ bolt_at + bore_d, bore_d, h ]) {
-    tag("remove")
     xcopies(spacing=bolt_at)
+      up($eps)
       cyl(d=bore_d, h=h + 2*$eps);
 
     // TODO head socket recess wen
@@ -189,6 +189,7 @@ module plate(anchor = CENTER, spin = 0, orient = UP) {
   ]) {
     diff()
     cuboid(size, chamfer=plate_chamfer, edges="Z")
+      tag("remove")
       attach(TOP, BOTTOM, overlap=size.z + $eps)
       bolt_holes(size.z);
 
