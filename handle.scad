@@ -13,16 +13,22 @@ explode = 10; // TODO animate
 
 /* [Mount Screws & Nuts] */
 
+// Mount screw and nut type; supports both metric like "M4" and UTS like "#8-32".
 mount_screw_spec = "M4";
 
+// Preview screw length; does not impact final model.
 mount_screw_length = 20;
 
+// Preview screw head; does not impact final model.
 mount_screw_head = "button";
 
+// Preview screw drive; does not impact final model.
 mount_screw_drive = "hex";
 
+// Screw shaft tolerance: bore hole diameter add.
 mount_screw_tol = 0.5;
 
+// Nut insert socket tolerance: X is face-to-face add, Y is thickness add.
 mount_nut_tol = [ 0.2, 0.1 ];
 
 /* [Handle Body Specs] */
@@ -202,7 +208,7 @@ module plate(anchor = CENTER, spin = 0, orient = UP) {
 module nut_insert(spec, h, nut_offset=0, entry = 0, retain = 0/* 0.4*/, bore_tol = mount_screw_tol, nut_tol = mount_nut_tol, decompose = false, anchor = CENTER, spin = 0, orient = UP) {
   N = nut_info(spec);
   BD = struct_val(N, "diameter");
-  W = struct_val(N, "width") + 2*nut_tol.x;
+  W = struct_val(N, "width") + nut_tol.x;
   T = struct_val(N, "thickness");
   ND = W/cos(30);
 
