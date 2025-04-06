@@ -2,7 +2,9 @@ include <BOSL2/std.scad>;
 
 /* [Parameters] */
 
-descent = 150;
+lock_size = [ 75, 175 ];
+
+lock_lip = 30;
 
 hole_tolerance = 0.5;
 
@@ -56,27 +58,44 @@ module mount(anchor = CENTER, spin = 0, orient = UP) {
 
 module lock(anchor = CENTER, spin = 0, orient = UP) {
   size = [
-    mount_size.x - 2*chamfer,
+    lock_size.x - 2*chamfer,
     hole_size.y,
-    descent + hole_size.y
+    lock_size.y + hole_size.y
   ];
   attachable(anchor, spin, orient, size=size) {
-    up(descent/2)
+    up(lock_size.y/2)
     cuboid([
-      mount_size.x - 2*chamfer,
+      lock_size.x - 2*chamfer,
       hole_size.y,
       hole_size.y
-    ], chamfer=chamfer)
+    ], chamfer=chamfer, edges=[
+        [1, 1, 0, 1], // yz -- +- -+ ++
+        [1, 1, 1, 1], // xz
+        [1, 1, 1, 1], // xy
+      ]) {
+
+      up(chamfer/2)
+      attach(FRONT, BOTTOM, overlap=$eps)
+        prismoid(
+          size1=[size.x - 2*chamfer, hole_size.y - chamfer],
+          size2=[size.x - 4*chamfer, chamfer],
+          h=lock_lip + $eps,
+          shift=[0, hole_size.y/2 - chamfer]
+          // chamfer=chamfer/2
+        );
+
       attach(BOTTOM, TOP, overlap=chamfer + $eps)
       cuboid([
         hole_size.x,
         hole_size.y,
-        descent + chamfer + $eps
+        lock_size.y + chamfer + $eps
       ], chamfer=chamfer, edges=[
         [1, 1, 0, 0], // yz -- +- -+ ++
         [1, 1, 0, 0], // xz
         [1, 1, 1, 1], // xy
       ]);
+
+    }
 
 
     children();
@@ -85,12 +104,12 @@ module lock(anchor = CENTER, spin = 0, orient = UP) {
 
 if ($preview) {
 
-  left_half(s=descent*20)
+  left_half(s=lock_size.y*20)
   mount()
-    attach(CENTER, BOTTOM, overlap=descent-mount_size.z/2)
+    attach(CENTER, BOTTOM, overlap=lock_size.y-mount_size.z/2)
     lock();
 
-  // mount();
+  // lock();
   // {
   //   // position(TOP) #sphere(1);
   //   // %show_anchors();
@@ -99,10 +118,12 @@ if ($preview) {
 
 } else {
   spacing = 5;
+
   back(hole_size.y/2 + spacing)
   left(mount_size.y/2 + hole_size.x/2 + spacing)
   mount(anchor=BOTTOM, spin=90);
-  lock(orient=FWD, anchor=FRONT);
+
+  lock(orient=FWD, anchor=BACK, spin=180);
 }
 
 // module XXX(anchor = CENTER, spin = 0, orient = UP) {
