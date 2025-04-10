@@ -75,14 +75,10 @@ module lock(anchor = CENTER, spin = 0, orient = UP) {
       ]) {
 
       up(chamfer/2)
-      attach(FRONT, BOTTOM, overlap=$eps)
-        prismoid(
-          size1=[size.x - 2*chamfer, hole_size.y - chamfer],
-          size2=[size.x - 4*chamfer, chamfer],
-          h=lock_lip + $eps,
-          shift=[0, hole_size.y/2 - chamfer]
-          // chamfer=chamfer/2
-        );
+      attach(FRONT, BACK, overlap=$eps)
+        grip(
+          size.x - 2*chamfer,
+          h=lock_lip + $eps);
 
       attach(BOTTOM, TOP, overlap=chamfer + $eps)
       cuboid([
@@ -97,7 +93,35 @@ module lock(anchor = CENTER, spin = 0, orient = UP) {
 
     }
 
+    children();
+  }
+}
 
+module grip(w, h=lock_lip, anchor = CENTER, spin = 0, orient = UP) {
+  size = [
+    w,
+    h,
+    hole_size.y - chamfer
+  ];
+
+  attachable(anchor, spin, orient, size=size) {
+    intersection() {
+
+      // wedge
+      back(size.y/2)
+      prismoid(
+        size1=[size.x, size.z],
+        size2=[size.x - 2*chamfer, chamfer],
+        h=size.y,
+        shift=[0, (size.z-chamfer)/2],
+        orient=FRONT
+      );
+
+      // Z-rounding cuboid
+      back(size.y/2)
+        cuboid([size.x, size.y*2, size.z + 2*$eps], rounding=size.y, edges="Z");
+
+    }
     children();
   }
 }
@@ -109,11 +133,12 @@ if ($preview) {
     attach(CENTER, BOTTOM, overlap=lock_size.y-mount_size.z/2)
     lock();
 
-  // lock();
+  // lock()
+  // // grip(100)
   // {
   //   // position(TOP) #sphere(1);
   //   // %show_anchors();
-  //   #cube($parent_size, center=true);
+  //   // cube($parent_size, center=true);
   // }
 
 } else {
