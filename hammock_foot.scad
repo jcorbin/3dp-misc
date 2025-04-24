@@ -13,8 +13,11 @@ $eps = 0.01;
 
 /* [Part Parameters] */
 
+// Lift off the ground to outer diamter cap wall.
+lift = 25;
+
 // Cap Inner Diameter.
-cap_id = 40;
+cap_id = 41;
 
 // Cap Wall Thickness.
 cap_wall = 3;
@@ -24,9 +27,6 @@ cap_depth = 29;
 
 // Inner and outer chamfer around the rim.
 rim_chamfer = 0.4;
-
-// Proportion of tip sphere to cut off / truncate.
-tip_cut = 0.2;
 
 // Cap Outer Diameter.
 cap_od = cap_id + 2*cap_wall;
@@ -40,8 +40,6 @@ bump_inset = 2;
 // Radial grip count.
 bump_count = floor(PI * cap_id / (2*bump) / 2);
 
-lift = 25;
-
 {
 
   h = cap_depth + cap_wall;
@@ -49,7 +47,7 @@ lift = 25;
   chamfer2 = rim_chamfer;
 
   r = cap_od / 2;
-  extra = lift - r;
+  extra = lift;
 
   outline = turtle([
     "left", 180,
@@ -71,22 +69,26 @@ lift = 25;
     90, 0
   ]);
 
+  xoff = extra/2;
+
   difference() {
     hull() path_sweep(profile, outline);
+    left(xoff)
     down((cap_depth - h)/2)
     cyl(d=cap_id, h=cap_depth+$eps, chamfer1=rim_chamfer)
       attach(TOP, BOTTOM, overlap=$eps + rim_chamfer)
         cyl(d=cap_id + 2*rim_chamfer, h=4*rim_chamfer, chamfer1=rim_chamfer);
   }
 
-
   if (bump > 0 && bump_count > 0) {
-    zrot_copies(n=bump_count)
-    left(cap_id/2)
-    down($eps)
-    down(bump_inset)
-    up(h/2)
-    cyl(r=bump, h=cap_depth+$eps - bump_inset, anchor=TOP, chamfer2=bump);
+    left(xoff) {
+      zrot_copies(n=bump_count)
+      left(cap_id/2)
+      down($eps)
+      down(bump_inset)
+      up(h/2)
+      cyl(r=bump, h=cap_depth+$eps - bump_inset, anchor=TOP, chamfer2=bump);
+    }
   }
 
 }
