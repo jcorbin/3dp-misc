@@ -17,7 +17,7 @@ $eps = 0.01;
 lift = 25;
 
 // Cap Inner Diameter.
-cap_id = 41;
+cap_id = 40;
 
 // Cap Wall Thickness.
 cap_wall = 3;
