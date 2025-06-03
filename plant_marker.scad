@@ -81,6 +81,7 @@ module marker(
 
 ydistribute(spacing=2 + text_size + 2*shaft_chamfer) {
 
+  // // 2024 garden
   // marker("Golden Zucchini", body_length=185);
   // marker("Brussel Sprouts", body_length=175);
   // marker("Straight Squash", body_length=175);
@@ -94,13 +95,20 @@ ydistribute(spacing=2 + text_size + 2*shaft_chamfer) {
   // marker("Cabbage", body_length=90);
   // marker("Chives", body_length=65);
   // marker("Basil", body_length=55);
-
   // marker("Serrano", body_length=80);
   // marker("Habenero", body_length=90);
   // marker("Thai Chilli", body_length=100);
-
   // marker("Lemongrass", body_length=130);
   // marker("Pumpkin", body_length=90);
-  marker("Luffa", body_length=55);
+  // marker("Luffa", body_length=55);
+
+  // 2025 garden
+  marker("Serrano", body_length=70, font_size=12);
+  marker("Habenero", body_length=85, font_size=12);
+  marker("Thai Chilli", body_length=85, font_size=12);
+  marker("Jalapeno", body_length=80, font_size=12);
+  marker("Gochujang", body_length=80, font_size=10);
+  marker("Scotch Bonnet", body_length=110, font_size=10);
+  marker("Prik Chi Faa", body_length=90, font_size=10);
 
 }
