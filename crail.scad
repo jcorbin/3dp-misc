@@ -24,29 +24,58 @@ feature = 0.4;
 chamfer = 0.5;
 
 // General wall thickness between voids
-wall = 3 * feature;
+wall = 1.2;
 
-/* [Rail Options] */
+/* [Rail Body Shape] */
 
+// Main outer corner rounding; the big one.
 rail_outer_rounding = 30;
 
-rail_inner_rounding = 2 * wall;
+// Minor outer corner rounding; these are the outside corners of the interior edges.
+rail_inner_rounding = 2.4;
 
-rail_wall = 4*wall;
+// Wall thickness beside filter slots.
+rail_wall = 12;
 
-pivot_pin = 4;
+/* [Rail Interlocks] */
 
-bore_d = 6;
+// Optional pivot pin to index each rail before engaging interlock dovetail.
+pivot_pin = 6;
 
-thru_d = 6;
+// Diamter of interlocking hexagonal dovetail.
+interlock_d = 8;
 
+/* [Bore and Thru holes] */
+
+// Optional vertical bore hole diamter thru rail spine.
+bore_d = 10;
+
+// Optional horizontal hole diamter thru rail spine, joining X and Y exterior faces.
+thru_d = 10;
+
+// Z spacing of horizontal thru holes.
 thru_every = 30;
 
+// Z setback of horizontal thru holes from part top/bottom.
 thru_margin = 15;
+
+// Additional X/Y setback of thru hole bores from outer rounding start; postive values make the thru hole more shallow.
+thru_offset = 5;
+
+/* [Rail Size Lables] */
+
+// Font size.
+label_size = 5;
+
+// Top emboss depth.
+label_depth_top = 0.4;
+
+// Bottom emboss depth.
+label_depth_bottom = 0.4;
 
 /* [Part Selection] */
 
-mode = 11; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile]
+mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile]
 
 /* [Target Filter Panel] */
 filter_size = [
@@ -209,6 +238,7 @@ module rail_body(h,
   x_slot = struct_val(prof, "x_slot");
   y_slot = struct_val(prof, "y_slot");
   outer_rounding = struct_val(prof, "outer_rounding");
+  thru_loc = outer_rounding - thru_offset;
 
   pivot = [ wall, wall ];
 
@@ -221,6 +251,8 @@ module rail_body(h,
     named_anchor("x_slot", [ x_slot_at.x, x_slot_at.y, 0 ], RIGHT),
     named_anchor("y_slot", [ y_slot_at.x, y_slot_at.y, 0 ], BACK),
     named_anchor("inner", [ inner_at.x, inner_at.y, 0 ], [1, 1, 0]),
+    named_anchor("inner_up", [ inner_at.x, inner_at.y, size.z/2 ], UP),
+    named_anchor("inner_down", [ inner_at.x, inner_at.y, -size.z/2 ], DOWN),
 
     named_anchor("pivot", [ pivot.x, pivot.y, 0 ], UP),
     named_anchor("pivot_up", [ pivot.x, pivot.y, size.z/2 ], UP),
@@ -230,11 +262,11 @@ module rail_body(h,
     named_anchor("spine_up", [ spine_at.x, spine_at.y, size.z/2 ], UP),
     named_anchor("spine_down", [ spine_at.x, spine_at.y, -size.z/2 ], DOWN),
 
-    named_anchor("thru_up", [ -size.x/2 + outer_rounding/2, -size.y/2 + outer_rounding/2, size.z/2 ], UP),
-    named_anchor("thru_down", [ -size.x/2 + outer_rounding/2, -size.y/2 + outer_rounding/2, -size.z/2 ], DOWN),
-    named_anchor("thru_z", [ -size.x/2 + outer_rounding/2, -size.y/2 + outer_rounding/2, 0 ], UP),
-    named_anchor("thru_x", [ -size.x/2 + outer_rounding, -size.y/2, 0 ], [ 1, -1, 0 ]),
-    named_anchor("thru_y", [ -size.x/2, -size.y/2 + outer_rounding, 0 ], [ -1, 1, 0 ]),
+    named_anchor("thru_up", [ -size.x/2 + thru_loc/2, -size.y/2 + thru_loc/2, size.z/2 ], UP),
+    named_anchor("thru_down", [ -size.x/2 + thru_loc/2, -size.y/2 + thru_loc/2, -size.z/2 ], DOWN),
+    named_anchor("thru_z", [ -size.x/2 + thru_loc/2, -size.y/2 + thru_loc/2, 0 ], UP),
+    named_anchor("thru_x", [ -size.x/2 + thru_loc, -size.y/2, 0 ], [ 1, -1, 0 ]),
+    named_anchor("thru_y", [ -size.x/2, -size.y/2 + thru_loc, 0 ], [ -1, 1, 0 ]),
   ]) {
     offset_sweep(
       struct_val(prof, "smooth_path"),
@@ -255,38 +287,96 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
     struct_val(prof, "height"),
     h
   ];
+  wall = struct_val(prof, "wall");
 
   attachable(anchor, spin, orient, size=size) {
 
     diff() rail_body(h) {
 
-      tag("remove") {
+      if (bore_d) {
+        tag("remove")
+        attach("thru_z", BOTTOM, overlap=h/2+$eps)
+          cyl(d=bore_d, h=h + 2*$eps, chamfer=-chamfer);
+      }
 
-        if (bore_d) {
-          attach("thru_z", BOTTOM, overlap=h/2+$eps)
-            cyl(d=bore_d, h=h + 2*$eps, chamfer=-chamfer);
-        }
-
-        if (thru_d && thru_every) {
-          attach("thru_x", FRONT, overlap=60.5)
-            zrot(45)
-            ycopies(l=h - 2*thru_margin, spacing=thru_every)
-            teardrop(d=thru_d, h=75);
-        }
-
-        if (pivot_pin > 0) {
-          attach("pivot_down", TOP, overlap=5)
-            cyl(d1=pivot_pin + 2 * tolerance, d2=pivot_pin - 2*chamfer + 2 * tolerance, h=5+$eps, chamfer1=-chamfer);
-        }
-
+      if (thru_d && thru_every) {
+      tag("remove")
+        attach("thru_x", FRONT, overlap=60.5)
+          zrot(45)
+          ycopies(l=h - 2*thru_margin, spacing=thru_every)
+          teardrop(d=thru_d, h=75);
       }
 
       if (pivot_pin > 0) {
+        tag("remove") {
+          attach("pivot_down", TOP, overlap=5)
+            cyl(d1=pivot_pin + 2 * tolerance, d2=pivot_pin - 2*chamfer + 2 * tolerance, h=5+$eps, chamfer1=-chamfer);
+        }
         attach("pivot_up", BOTTOM)
           cyl(d1=pivot_pin, d2=pivot_pin - 2*chamfer, h=5, chamfer1=-chamfer);
       }
 
-      // TODO interlocking dovetail
+      if (interlock_d > 0) {
+        // TODO wants to use a spine or pivot named anchor
+
+        // TODO why is this necessary... the interior edge of x-slot back is slightly off
+        interlock_fudge = 0.1;
+
+        interlock_male = round_corners(hexagon(d=interlock_d), method="smooth", joint=[
+          chamfer,
+          0,
+          0,
+          chamfer,
+          chamfer,
+          chamfer,
+        ]);
+
+        interlock_female = round_corners(hexagon(d=interlock_d + tolerance), method="smooth", joint=[
+          chamfer,
+          0,
+          0,
+          chamfer,
+          chamfer,
+          chamfer,
+        ]);
+       
+        up(size.z/2)
+        up(interlock_d*sqrt(3)/4)
+        down($eps)
+        back(wall)
+        right(wall - interlock_fudge)
+          path_sweep(interlock_male, arc(r=25, angle=[-90,-180]));
+
+        tag("remove") {
+          down(size.z/2)
+          up(interlock_d*sqrt(3)/4)
+          down($eps)
+          back(wall)
+          right(wall - interlock_fudge)
+            path_sweep(interlock_female, arc(r=25, angle=[-89,-191]));
+        }
+      }
+
+      if (label_size > 0) {
+        if (label_depth_top > 0) {
+          tag("remove")
+          position("inner_up")
+          down(label_depth_top/2)
+          zrot(-45)
+          fwd(label_size)
+            text3d(str("H", h), h=label_depth_top+$eps, size=label_size, anchor=CENTER, atype="ycenter");
+        }
+
+        if (label_depth_bottom > 0) {
+          tag("remove")
+          position("inner_down")
+          up(label_depth_bottom/2)
+          zrot(-45)
+          fwd(label_size)
+            text3d(str("H", h), h=label_depth_bottom+$eps, size=label_size, anchor=CENTER, atype="ycenter");
+        }
+
+      }
 
       // TODO interior attachment system, e.g. attach("inner", ...) thread holes
 
@@ -360,15 +450,22 @@ else if (mode == 11) {
 
 else if (mode == 100) {
 
-  rail(50) {
+  zrot(-90)
+  path_sweep(
+    hexagon(
+      d=interlock_d,
+      rounding=chamfer
+    ),
+    arc(r=25, angle=-90),
+  );
 
-  // position(TOP) #sphere(1);
-  // %show_anchors(std=false);
-  // zrot(-45)
-  // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-  // #cube($parent_size, center=true);
-
-  }
+  // {
+  // // position(TOP) #sphere(1);
+  // // %show_anchors(std=false);
+  // // zrot(-45)
+  // // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
+  // // #cube($parent_size, center=true);
+  // }
 
 }
 
