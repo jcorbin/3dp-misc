@@ -75,7 +75,7 @@ label_depth_bottom = 0.4;
 
 /* [Part Selection] */
 
-mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile]
+mode = 102; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile, 102:Filer Panel]
 
 /* [Target Filter Panel] */
 filter_size = [
@@ -93,13 +93,23 @@ filter_size = [
 
 ];
 
+filter_cardboard_thickness = 1;
+
+filter_inside_frame = 18;
+
+filter_outside_frame = 25;
+
+filter_baffle_pitch = 20;
+
+filter_baffle_thickness = 2;
+
 filter_frame = [ 25, 1 ];
 
 filter_spacing = filter_size.x + filter_size.z + 2*wall;
 
 filter_slot = [
   filter_size.z + 2*tolerance,
-  filter_frame.x + filter_frame.y // TODO + grip room
+  filter_frame.x + filter_cardboard_thickness // TODO + grip room
 ];
 
 filter_slot_chamfer = 1;
@@ -110,16 +120,75 @@ rail_fillet = sqrt(2 * ( filter_slot.y - rail_wall*1.5 )^2);
 
 module filter_panel(anchor = CENTER, spin = 0, orient = UP) {
   attachable(anchor, spin, orient, size=filter_size) {
-    render() diff()
-      cuboid(filter_size) {
+    render() diff() cuboid(filter_size) {
+
+      interior_size = filter_size - [
+        2*filter_cardboard_thickness,
+        2*filter_cardboard_thickness,
+        2*filter_cardboard_thickness,
+      ];
+
+      // front window cutout
       tag("remove")
-      attach([TOP, BOTTOM], BOTTOM, overlap=filter_frame.y)
-      cuboid([
-        filter_size.x - 2*filter_frame.x,
-        filter_size.y - 2*filter_frame.x,
-        filter_frame.y + $eps
-      ]);
-      // TODO model baffle triangles
+        attach(TOP, BOTTOM, overlap=filter_cardboard_thickness+$eps)
+        cuboid([
+          filter_size.x - 2*filter_outside_frame,
+          filter_size.y - 2*filter_outside_frame,
+          filter_cardboard_thickness + 2*$eps
+        ]);
+
+      // rear lattice grid cutout
+      face_mask(BOTTOM) {
+        region = [
+          filter_size.x - 2*filter_inside_frame,
+          filter_size.y - 2*filter_inside_frame,
+        ];
+        inside = rect(region);
+        intersection() {
+          cuboid([region.x, region.y, 2]);
+          zrot(45)
+          grid_copies(inside=1.5*inside, spacing=105)
+            cuboid([95, 95, 2], chamfer=16, edges="Z");
+        }
+      }
+
+      // interior hollow
+      tag("remove")
+        attach(CENTER, CENTER)
+        cuboid(interior_size);
+
+      // embafflement
+      baffle_points = let(
+        length = filter_size.x - 2*filter_baffle_thickness,
+        depth = filter_size.z - 2*filter_baffle_thickness,
+        pitch = filter_baffle_pitch,
+        hap = pitch/2,
+        ang = 2*atan2(depth, hap),
+        count = ceil(length/pitch),
+        mid = turtle([
+          "angle", ang,
+          "length", sqrt(hap^2 + depth^2),
+          "turn", -ang/2,
+          "move",
+          "repeat", count, [
+            "left", "move",
+            "right", "move",
+          ],
+        ]),
+        off = filter_baffle_thickness/2,
+      ) concat(
+        move([-count*pitch/2, depth/2 + off], mid),
+        reverse(move([-count*pitch/2, depth/2 - off], mid))
+      );
+
+      tag("keep")
+      intersection() {
+        cuboid(interior_size);
+        xrot(90)
+        color("grey")
+        linear_extrude(height=filter_size.y - 2*filter_cardboard_thickness, center=true)
+          polygon(points = baffle_points);
+      }
     }
     children();
   }
@@ -497,6 +566,10 @@ else if (mode == 101) {
   color("red") down(.2) polygon(struct_val(prof, "basic_path"));
   color("blue") down(.1) polygon(struct_val(prof, "cut_path"));
   color("yellow") polygon(struct_val(prof, "smooth_path"));
+}
+
+else if (mode == 102) {
+  filter_panel(orient=FRONT);
 }
 
 // module XXX(anchor = CENTER, spin = 0, orient = UP) {
