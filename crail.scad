@@ -42,8 +42,14 @@ rail_wall = 12;
 // Optional pivot pin to index each rail before engaging interlock dovetail.
 pivot_pin = 6;
 
-// Diamter of interlocking hexagonal dovetail.
+// Diamter of interlocking dovetail.
 interlock_d = 8;
+
+// Corner smoothing amount for interlocking dovetail; not technically a crisp chamfer, but the metric applies similarly to a chamfer depth.
+interlock_chamfer = 1.5;
+
+// Degree of interlocking dovetail polygon; for large enough dovetail diameter, a pentagon is better since it comes to a point like a teardrop shape, decreasing stringing inside bottom cavity.
+interlock_ngon = 5;
 
 /* [Bore and Thru holes] */
 
@@ -75,7 +81,7 @@ label_depth_bottom = 0.4;
 
 /* [Part Selection] */
 
-mode = 102; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile, 102:Filer Panel]
+mode = 103; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile, 102:Filer Panel, 103:Filter Rail Fit]
 
 /* [Target Filter Panel] */
 filter_size = [
@@ -117,6 +123,28 @@ filter_slot_chamfer = 1;
 rail_width = rail_wall + filter_slot.x + rail_wall + filter_slot.y;
 
 rail_fillet = sqrt(2 * ( filter_slot.y - rail_wall*1.5 )^2);
+
+function interlock_profile(
+  n=interlock_ngon,
+  d=interlock_d,
+  tolerance=0,
+  chamfer=interlock_chamfer,
+) = let (
+  points = n % 2 == 0
+    ? regular_ngon(n=n, d=d + tolerance, align_side=[0, -1])
+    : regular_ngon(n=n, d=d + tolerance, align_tip=[0, 1]),
+  chamfer_points = len(points)-2,
+  chamfers = n % 2 == 0
+    ? concat(
+      [0, 0],
+      repeat(chamfer, chamfer_points)
+    )
+    : concat(
+      repeat(chamfer, ceil(chamfer_points/2)),
+      [0, 0],
+      repeat(chamfer, floor(chamfer_points/2))
+    ),
+) round_corners(points, method="smooth", joint=chamfers);
 
 module filter_panel(anchor = CENTER, spin = 0, orient = UP) {
   attachable(anchor, spin, orient, size=filter_size) {
@@ -209,6 +237,7 @@ function rail_profile(
   start = [-wid/2, -hei/2],
 
   inner_plate = sqrt(y_slot.y^2 + x_slot.y^2),
+  inner_travel = wall, // TODO kill this, let rounding handle the blend to 45? leave it 90?
 
   // TODO slot draft angle ; inteead of lip chamfer?
 
@@ -219,19 +248,19 @@ function rail_profile(
 
     "move", wall,
     "turn",
-    "move", x_slot.x,
-    "turn", -90,
     "move", x_slot.y,
     "turn", -90,
     "move", x_slot.x,
+    "turn", -90,
+    "move", x_slot.y,
     "turn",
-    "move", wall,
 
+    "move", inner_travel,
     "turn", 45,
     "move", inner_plate,
     "turn", 45,
+    "move", inner_travel,
 
-    "move", wall,
     "turn",
     "move", y_slot.y,
     "turn", -90,
@@ -298,45 +327,76 @@ function rail_profile(
   ["smooth_path", smooth_path],
 ];
 
+function rail_body(h) = let(
+  prof = rail_profile(),
+  size = [
+    struct_val(prof, "width"),
+    struct_val(prof, "height"),
+    h
+  ],
+
+  wall = struct_val(prof, "wall"),
+  x_slot = struct_val(prof, "x_slot"),
+  y_slot = struct_val(prof, "y_slot"),
+
+  pivot_at = [
+    size.x/2 - x_slot.y,
+    size.y/2 - y_slot.y,
+    0 ],
+
+  x_slot_at = [
+    pivot_at.x,
+    -size.y/2 + wall + x_slot.x/2,
+    0 ],
+  y_slot_at = [
+    -size.x/2 + wall + y_slot.x/2,
+    pivot_at.y,
+    0 ],
+
+  outer_rounding = struct_val(prof, "outer_rounding"),
+  thru_loc = outer_rounding - thru_offset,
+
+  inner_at = [
+    size.x/2 - x_slot.y/2,
+    size.y/2 - y_slot.y/2,
+    0 ],
+
+  spine_at = rot(-45, cp=pivot_at, p=[x_slot_at.x, x_slot_at.y, 0] ),
+) concat(prof, [
+  ["size", size],
+  ["x_slot_at", x_slot_at],
+  ["y_slot_at", y_slot_at],
+  ["thru_loc", thru_loc],
+  ["pivot_at", pivot_at],
+  ["inner_at", inner_at],
+  ["spine_at", spine_at],
+]);
+
 module rail_body(h,
   chamfer1 = chamfer,
   chamfer2 = 0,
   anchor = CENTER, spin = 0, orient = UP
 ) {
-  prof = rail_profile();
-
-  size = [
-    struct_val(prof, "width"),
-    struct_val(prof, "height"),
-    h
-  ];
-
+  prof = rail_body(h);
+  size = struct_val(prof, "size");
   wall = struct_val(prof, "wall");
-
-  x_slot = struct_val(prof, "x_slot");
-  y_slot = struct_val(prof, "y_slot");
-  outer_rounding = struct_val(prof, "outer_rounding");
-  thru_loc = outer_rounding - thru_offset;
-
-  pivot = [ wall, wall ];
-
-  x_slot_at = [ size.x/2 - x_slot.y, 0 - x_slot.x/2 ];
-  y_slot_at = [ 0 - y_slot.y/2, size.y/2 - x_slot.x ];
-  inner_at = [ wall/2 + size.x/4, wall/2 + size.y/4 ];
-  spine_at = rot(-45, cp=pivot, p=x_slot_at );
+  thru_loc = struct_val(prof, "thru_loc");
+  pivot_at = struct_val(prof, "pivot_at");
+  inner_at = struct_val(prof, "inner_at");
+  spine_at = struct_val(prof, "spine_at");
 
   attachable(anchor, spin, orient, size=size, anchors=[
-    named_anchor("x_slot", [ x_slot_at.x, x_slot_at.y, 0 ], RIGHT),
-    named_anchor("y_slot", [ y_slot_at.x, y_slot_at.y, 0 ], BACK),
-    named_anchor("inner", [ inner_at.x, inner_at.y, 0 ], [1, 1, 0]),
+    named_anchor("x_slot",  struct_val(prof, "x_slot_at"), RIGHT),
+    named_anchor("y_slot",  struct_val(prof, "y_slot_at"), BACK),
+    named_anchor("inner", inner_at, [1, 1, 0]),
     named_anchor("inner_up", [ inner_at.x, inner_at.y, size.z/2 ], UP),
     named_anchor("inner_down", [ inner_at.x, inner_at.y, -size.z/2 ], DOWN),
 
-    named_anchor("pivot", [ pivot.x, pivot.y, 0 ], UP),
-    named_anchor("pivot_up", [ pivot.x, pivot.y, size.z/2 ], UP),
-    named_anchor("pivot_down", [ pivot.x, pivot.y, -size.z/2 ], DOWN),
+    named_anchor("pivot",  pivot_at, UP),
+    named_anchor("pivot_up", [ pivot_at.x, pivot_at.y, size.z/2 ], UP),
+    named_anchor("pivot_down", [ pivot_at.x, pivot_at.y, -size.z/2 ], DOWN),
 
-    named_anchor("spine", [ spine_at.x, spine_at.y, 0 ], DOWN),
+    named_anchor("spine",  spine_at, DOWN),
     named_anchor("spine_up", [ spine_at.x, spine_at.y, size.z/2 ], UP),
     named_anchor("spine_down", [ spine_at.x, spine_at.y, -size.z/2 ], DOWN),
 
@@ -359,15 +419,14 @@ module rail_body(h,
 }
 
 module rail(h, anchor = CENTER, spin = 0, orient = UP) {
-  prof = rail_profile();
-  size = [
-    struct_val(prof, "width"),
-    struct_val(prof, "height"),
-    h
-  ];
+  prof = rail_body(h);
+  size = struct_val(prof, "size");
   wall = struct_val(prof, "wall");
 
-  attachable(anchor, spin, orient, size=size) {
+  attachable(anchor, spin, orient, size=size, anchors=[
+    named_anchor("x_slot",  struct_val(prof, "x_slot_at"), RIGHT),
+    named_anchor("y_slot",  struct_val(prof, "y_slot_at"), BACK),
+  ]) {
 
     diff() rail_body(h) {
 
@@ -395,43 +454,53 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
       }
 
       if (interlock_d > 0) {
-        // TODO wants to use a spine or pivot named anchor
-
-        // TODO why is this necessary... the interior edge of x-slot back is slightly off
-        interlock_fudge = 0.1;
-
-        interlock_male = round_corners(hexagon(d=interlock_d), method="smooth", joint=[
-          chamfer,
-          0,
-          0,
-          chamfer,
-          chamfer,
-          chamfer,
-        ]);
-
-        interlock_female = round_corners(hexagon(d=interlock_d + tolerance), method="smooth", joint=[
-          chamfer,
-          0,
-          0,
-          chamfer,
-          chamfer,
-          chamfer,
-        ]);
-       
-        up(size.z/2)
-        up(interlock_d*sqrt(3)/4)
-        down($eps)
-        back(wall)
-        right(wall - interlock_fudge)
-          path_sweep(interlock_male, arc(r=25, angle=[-90,-180]));
+        xat = struct_val(prof, "x_slot_at");
+        yat = struct_val(prof, "y_slot_at");
+        pat = struct_val(prof, "pivot_at");
+        interlock_arc_base = norm([xat.x - yat.x, xat.y - yat.y]);
+        interlock_arc_r = norm([xat.x - pat.x, xat.y - pat.y]);
+        interlock_arc_ang = 2*asin((interlock_arc_base/2)/interlock_arc_r);
 
         tag("remove") {
-          down(size.z/2)
-          up(interlock_d*sqrt(3)/4)
-          down($eps)
-          back(wall)
-          right(wall - interlock_fudge)
-            path_sweep(interlock_female, arc(r=25, angle=[-89,-191]));
+          up(interlock_d/2)
+          up(size.z/2)
+          right($eps)
+          attach("x_slot", BOTTOM)
+            cuboid([1.5*interlock_d, 1.5*interlock_d, 5]);
+
+          up(interlock_d/2)
+          up(size.z/2)
+          back($eps)
+          attach("y_slot", BOTTOM)
+            cuboid([1.5*interlock_d, 1.5*interlock_d, 5]);
+        }
+
+        position("pivot_up")
+        let (
+          profile = interlock_profile(tolerance=0),
+          bounds = pointlist_bounds(profile),
+          profile_h = bounds[1].y - bounds[0].y,
+        )
+        down(tolerance)
+        up(profile_h/2)
+          path_sweep(profile, arc(r=interlock_arc_r, angle=[
+            -134 + interlock_arc_ang/2,
+            -136 - interlock_arc_ang/2
+          ]));
+
+        tag("remove") {
+          position("pivot_down")
+          let(
+            profile = interlock_profile(tolerance=tolerance),
+            bounds = pointlist_bounds(profile),
+            profile_h = bounds[1].y - bounds[0].y,
+          )
+          down(tolerance)
+          up(profile_h/2)
+            path_sweep(profile, arc(r=interlock_arc_r, angle=[
+            -134 + interlock_arc_ang/2,
+            -136 - interlock_arc_ang/2
+            ]));
         }
       }
 
@@ -450,6 +519,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
           position("inner_down")
           up(label_depth_bottom/2)
           zrot(-45)
+          xflip()
           fwd(label_size)
             text3d(str("H", h), h=label_depth_bottom+$eps, size=label_size, anchor=CENTER, atype="ycenter");
         }
@@ -466,20 +536,11 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
 
 }
 
-//// TODO fix problems from draft-1 print
-// 1. interlock arc interferes with inner bulkhead
-// 2. filter slot fit is way too loose
-// 3. interlock cavity has roof stringing
-// 4. bottom text is mirrored
-// 5. might need more tolerance in interlock cavity
-//
-// wrt #1: may trim bulkhead and/or shorten interlock arc
-// wrt #2: either need way tigher fit or retention bumps
-//     ... or we need to rely on a strap cord
-//     ... filter actually measures 20mm ... lolsob
-//     ... ahhh filter frame differs on the inside vs outside
+// TODO interlock-vs-bulkhead interference
+// 1. show the co-arc in dev preview
+// 2. either trim bulkhead, or tweak interlock placement
 
-// TODO filter grip bumps
+// TODO maybe add inner lip filter retention bumps
 
 // TODO fan holder / grip
 
@@ -570,6 +631,25 @@ else if (mode == 101) {
 
 else if (mode == 102) {
   filter_panel(orient=FRONT);
+}
+
+else if (mode == 103) {
+
+  // rail_body(50)
+  rail(50)
+  // rail(500)
+
+  // TODO model interlock co-arc
+
+  {
+    // show_anchors(s = 10, std = false, custom = true);
+    // position(TOP) #sphere(1);
+    %show_anchors(std=false);
+    // zrot(-45)
+    // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
+    // #cube($parent_size, center=true);
+  }
+
 }
 
 // module XXX(anchor = CENTER, spin = 0, orient = UP) {
