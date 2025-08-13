@@ -79,9 +79,18 @@ mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile]
 
 /* [Target Filter Panel] */
 filter_size = [
-  20 * 25.4,
-  20 * 25.4,
-   1 * 25.4
+
+  // NOTE these are nominally 20x20x1 (all in inches) panels on spec...
+  //  ... but labeled actual size is 500.1 x 500.1 x 19.1
+
+  // 20 * 25.4,
+  // 20 * 25.4,
+  // 1 * 25.4
+
+  500.1,
+  500.1,
+  19.1
+
 ];
 
 filter_frame = [ 25, 1 ];
@@ -388,6 +397,19 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
 
 }
 
+//// TODO fix problems from draft-1 print
+// 1. interlock arc interferes with inner bulkhead
+// 2. filter slot fit is way too loose
+// 3. interlock cavity has roof stringing
+// 4. bottom text is mirrored
+// 5. might need more tolerance in interlock cavity
+//
+// wrt #1: may trim bulkhead and/or shorten interlock arc
+// wrt #2: either need way tigher fit or retention bumps
+//     ... or we need to rely on a strap cord
+//     ... filter actually measures 20mm ... lolsob
+//     ... ahhh filter frame differs on the inside vs outside
+
 // TODO filter grip bumps
 
 // TODO fan holder / grip
@@ -426,6 +448,7 @@ else if (mode == 10) {
 }
 
 else if (mode == 11) {
+  // 500 = 200 + 150 + 150
 
   // 16 * 25.4 = 406.4
   // 406.4 = 200 + 206.4
