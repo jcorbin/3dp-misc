@@ -1,6 +1,44 @@
 include <BOSL2/std.scad>;
 include <BOSL2/rounding.scad>;
 
+/*
+
+# Dev Log
+
+## Draft 1
+
+- bad: naive 25mm slot was far too loose, interlock ring interference show
+  stopper
+- good: smooth, thru holes seem useful, pivot seems to work, was able to shear
+  pivot pin, force the fit, and test interlock after all
+- mid: stringing on roof of hexagon interlock channel, flipped text on bottom
+
+## Draft 2
+
+- fixed slot metrics: towards a 19 mm filter (aka 3/4 inch)
+- tyring an experimental "dumbest fix" for interlock problem: cutaway bottom
+  channel
+
+- good: filter friction fit Feels Good Yo; seems we may not need retention
+  bumps, interlock now works well
+- bad: cutout channel leaves a tiny island on layer 1 that had a 50% chance to
+  spaghettifi in my 2 test parts
+
+## WIP
+
+- properly fix the interlock interference problem
+
+## TODO
+
+- fan holder / grip / mount part; will interlock top side rail
+- base plate holder / foot; will interlock bottom side rail
+- handles, probably integrated into the fan holder, but could be a separate part
+- side rails?
+- emboss filter size into channel back wall
+
+*/
+
+
 /* [Geometry Detail] */
 
 // Fragment minimum angle.
@@ -566,19 +604,6 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
 
 
 }
-
-// TODO interlock-vs-bulkhead interference
-// 1. show the co-arc in dev preview
-// 2. either trim bulkhead, or tweak interlock placement
-
-// TODO maybe add inner lip filter retention bumps
-
-// TODO fan holder / grip
-
-// TODO base plate holder
-
-// TODO stitch pins for base plate / filter rim
-
 module preview_cut() {
   if ($preview)
     back_half(s=10000) children();
@@ -607,15 +632,7 @@ if (mode == 0) {
 
    }
 
-  // TODO model the box 
-
   // TODO model the baseplate ; may be 5th filter dba base
-
-  // TODO feet
-
-  // TODO fan holder / grip
-
-  // TODO handles
 
 }
 
