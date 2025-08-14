@@ -124,11 +124,21 @@ rail_width = rail_wall + filter_slot.x + rail_wall + filter_slot.y;
 
 rail_fillet = sqrt(2 * ( filter_slot.y - rail_wall*1.5 )^2);
 
+function ngon_max_bottom(path) = let (
+  bounds = pointlist_bounds(path),
+) [
+  for (pt = path)
+    pt.y == bounds[0].y
+      ? [pt.x < 0 ? bounds[0].x : bounds[1].x, pt.y]
+      : pt
+];
+
 function interlock_profile(
   n=interlock_ngon,
   d=interlock_d,
   tolerance=0,
   chamfer=interlock_chamfer,
+  open=false,
 ) = let (
   points = n % 2 == 0
     ? regular_ngon(n=n, d=d + tolerance, align_side=[0, -1])
@@ -144,7 +154,7 @@ function interlock_profile(
       [0, 0],
       repeat(chamfer, floor(chamfer_points/2))
     ),
-) round_corners(points, method="smooth", joint=chamfers);
+) round_corners(open ? ngon_max_bottom(points) : points, method="smooth", joint=chamfers);
 
 module filter_panel(anchor = CENTER, spin = 0, orient = UP) {
   attachable(anchor, spin, orient, size=filter_size) {
@@ -436,7 +446,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
           cyl(d=bore_d, h=h + 2*$eps, chamfer=-chamfer);
       }
 
-      if (thru_d && thru_every) {
+      if (thru_d && thru_every && h >= thru_every + thru_d) {
       tag("remove")
         attach("thru_x", FRONT, overlap=60.5)
           zrot(45)
@@ -482,26 +492,47 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
           profile_h = bounds[1].y - bounds[0].y,
         )
         down(tolerance)
-        up(profile_h/2)
+        up(profile_h/2) {
+
           path_sweep(profile, arc(r=interlock_arc_r, angle=[
             -134 + interlock_arc_ang/2,
             -136 - interlock_arc_ang/2
           ]));
 
-        tag("remove") {
-          position("pivot_down")
-          let(
-            profile = interlock_profile(tolerance=tolerance),
-            bounds = pointlist_bounds(profile),
-            profile_h = bounds[1].y - bounds[0].y,
-          )
-          down(tolerance)
-          up(profile_h/2)
+          if ($preview) {
+            tag("keep")
+            recolor("#ff663388")
+            zrot(180)
             path_sweep(profile, arc(r=interlock_arc_r, angle=[
-            -134 + interlock_arc_ang/2,
-            -136 - interlock_arc_ang/2
+              -134 + (180 - interlock_arc_ang/2),
+              -136 - (180 - interlock_arc_ang/2)
             ]));
+          }
+
         }
+
+        tag("remove")
+        position("pivot_down")
+        let(
+          profile = interlock_profile(tolerance=tolerance),
+          insert = interlock_profile(tolerance=tolerance, open=true),
+          bounds = pointlist_bounds(profile),
+          profile_h = bounds[1].y - bounds[0].y,
+        )
+          down(tolerance) up(profile_h/2) {
+
+            path_sweep(profile, arc(r=interlock_arc_r, angle=[
+              -134 + interlock_arc_ang/2,
+              -136 - interlock_arc_ang/2
+            ]));
+
+            path_sweep(insert, arc(r=interlock_arc_r, angle=[
+              -43 + interlock_arc_ang/2,
+              -45 - interlock_arc_ang/2
+            ]));
+
+          }
+
       }
 
       if (label_size > 0) {
@@ -589,7 +620,7 @@ if (mode == 0) {
 }
 
 else if (mode == 10) {
-  rail(50);
+  rail(20);
 }
 
 else if (mode == 11) {
