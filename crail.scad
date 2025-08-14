@@ -556,10 +556,25 @@ module preview_cut() {
 }
 
 if (mode == 0) {
-  ycopies(spacing=filter_spacing)
-    filter_panel(orient=FRONT);
-  xcopies(spacing=filter_spacing)
-    filter_panel(orient=RIGHT);
+
+  filter_panel(orient=FRONT) {
+    attach(LEFT, "x_slot", spin=180)
+    rail(500)
+      attach("y_slot", LEFT, spin=90)
+      filter_panel()
+        attach(RIGHT, "x_slot", spin=180)
+        rail(500);
+
+    attach(RIGHT, "y_slot", spin=90)
+    rail(500)
+      attach("x_slot", LEFT, spin=180)
+      filter_panel()
+        attach(RIGHT, "y_slot", spin=90)
+        rail(500)
+          attach("x_slot", LEFT, spin=180)
+          filter_panel();
+
+   }
 
   // TODO model the box 
 
