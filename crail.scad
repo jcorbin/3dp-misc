@@ -81,7 +81,7 @@ label_depth_bottom = 0.4;
 
 /* [Part Selection] */
 
-mode = 103; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile, 102:Filer Panel, 103:Filter Rail Fit]
+mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile, 102:Filer Panel]
 
 /* [Target Filter Panel] */
 filter_size = [
@@ -633,24 +633,16 @@ else if (mode == 102) {
   filter_panel(orient=FRONT);
 }
 
-else if (mode == 103) {
-
-  // rail_body(50)
-  rail(50)
-  // rail(500)
-
-  // TODO model interlock co-arc
-
-  {
-    // show_anchors(s = 10, std = false, custom = true);
-    // position(TOP) #sphere(1);
-    %show_anchors(std=false);
-    // zrot(-45)
-    // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-    // #cube($parent_size, center=true);
-  }
-
-}
+// rail(50)
+// // rail_body(50)
+// {
+//   // show_anchors(s = 10, std = false, custom = true);
+//   // position(TOP) #sphere(1);
+//   %show_anchors(std=false);
+//   // zrot(-45)
+//   // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
+//   // #cube($parent_size, center=true);
+// }
 
 // module XXX(anchor = CENTER, spin = 0, orient = UP) {
 //   size = [XXX.x, XXX.z, XXX.y];
