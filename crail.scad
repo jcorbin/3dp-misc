@@ -16,17 +16,20 @@ include <BOSL2/rounding.scad>;
 ## Draft 2
 
 - fixed slot metrics: towards a 19 mm filter (aka 3/4 inch)
-- tyring an experimental "dumbest fix" for interlock problem: cutaway bottom
+- trying an experimental "dumbest fix" for interlock problem: cutaway bottom
   channel
-
 - good: filter friction fit Feels Good Yo; seems we may not need retention
   bumps, interlock now works well
 - bad: cutout channel leaves a tiny island on layer 1 that had a 50% chance to
   spaghettifi in my 2 test parts
 
-## WIP
+## Draft 3
 
-- properly fix the interlock interference problem
+- made the pentagonal cavity tip sharp / non-rounded
+- cut entire curved arc away from interior bulkhead
+- added X and Y slot size labels
+
+## WIP
 
 ## TODO
 
@@ -34,7 +37,6 @@ include <BOSL2/rounding.scad>;
 - base plate holder / foot; will interlock bottom side rail
 - handles, probably integrated into the fan holder, but could be a separate part
 - side rails?
-- emboss filter size into channel back wall
 
 */
 
@@ -109,17 +111,10 @@ thru_offset = 5;
 /* [Rail Size Lables] */
 
 // Font size.
-label_size = 5;
+label_size = 4;
 
-// Top emboss depth.
-label_depth_top = 0.4;
-
-// Bottom emboss depth.
-label_depth_bottom = 0.4;
-
-/* [Part Selection] */
-
-mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Rail Profile, 102:Filer Panel]
+// Font emboss depth.
+label_depth = 0.4;
 
 /* [Target Filter Panel] */
 filter_size = [
@@ -147,13 +142,19 @@ filter_baffle_pitch = 20;
 
 filter_baffle_thickness = 2;
 
-filter_frame = [ 25, 1 ];
+/* [Part Selection] */
 
-filter_spacing = filter_size.x + filter_size.z + 2*wall;
+mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Filer Panel, 102:Rail Profile, 103:Interlock Profile]
+
+/// dispatch / integration
+
+module __customizer_limit__() {}
 
 filter_slot = [
   filter_size.z + 2*tolerance,
-  filter_frame.x + filter_cardboard_thickness // TODO + grip room
+  max(filter_inside_frame, filter_outside_frame)
+  + filter_cardboard_thickness
+  // TODO + grip room
 ];
 
 filter_slot_chamfer = 1;
@@ -171,11 +172,36 @@ function ngon_max_bottom(path) = let (
       : pt
 ];
 
+function cutaway_shape(w, h, shape) = let (
+  cut_bounds = pointlist_bounds(shape),
+  cut_x = cut_bounds[1].x + w,
+  cut_y = h,
+  bot_y = cut_bounds[0].y,
+  bot_x = cut_bounds[0].x,
+  top_y = cut_bounds[1].y,
+  slant_from = [bot_x, top_y],
+  max_slant_to = [cut_x, cut_y + $eps],
+  cut_out = [cut_x, bot_y - $eps],
+
+  basic = [
+    cut_out,
+    [bot_x - chamfer - $eps, bot_y - $eps],
+    [bot_x, bot_y+ chamfer],
+    slant_from,
+    line_intersection(
+      [ slant_from, slant_from + [ 1, 1 ] ],
+      [ cut_out, max_slant_to ],
+    ),
+  ],
+  out = round_corners(basic, method="smooth", joint=[0, 0, 0, 2*chamfer, 0]),
+) out;
+
 function interlock_profile(
   n=interlock_ngon,
   d=interlock_d,
   tolerance=0,
   chamfer=interlock_chamfer,
+  sharp=false,
   open=false,
 ) = let (
   points = n % 2 == 0
@@ -185,10 +211,13 @@ function interlock_profile(
   chamfers = n % 2 == 0
     ? concat(
       [0, 0],
-      repeat(chamfer, chamfer_points)
+      repeat(chamfer, floor(chamfer_points/2)-1),
+      repeat(sharp ? 0 : chamfer, 2),
+      repeat(chamfer, floor(chamfer_points/2)-1),
     )
     : concat(
-      repeat(chamfer, ceil(chamfer_points/2)),
+      [sharp ? 0 : chamfer],
+      repeat(chamfer, floor(chamfer_points/2)),
       [0, 0],
       repeat(chamfer, floor(chamfer_points/2))
     ),
@@ -466,7 +495,7 @@ module rail_body(h,
   }
 }
 
-module rail(h, anchor = CENTER, spin = 0, orient = UP) {
+module rail(h, anchor = CENTER, spin = 0, orient = UP, full_arc_preview = false) {
   prof = rail_body(h);
   size = struct_val(prof, "size");
   wall = struct_val(prof, "wall");
@@ -537,7 +566,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
             -136 - interlock_arc_ang/2
           ]));
 
-          if ($preview) {
+          if ($preview && full_arc_preview) {
             tag("keep")
             recolor("#ff663388")
             zrot(180)
@@ -552,46 +581,56 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP) {
         tag("remove")
         position("pivot_down")
         let(
-          profile = interlock_profile(tolerance=tolerance),
-          insert = interlock_profile(tolerance=tolerance, open=true),
+          profile = interlock_profile(tolerance=tolerance, sharp=true),
+          insert = interlock_profile(tolerance=tolerance, sharp=true, open=true),
           bounds = pointlist_bounds(profile),
           profile_h = bounds[1].y - bounds[0].y,
+          cutaway = cutaway_shape(
+            norm([size.x, size.y])/2 - interlock_arc_r,
+            size.z,
+            insert),
         )
           down(tolerance) up(profile_h/2) {
 
+            down($eps)
             path_sweep(profile, arc(r=interlock_arc_r, angle=[
               -134 + interlock_arc_ang/2,
               -136 - interlock_arc_ang/2
             ]));
 
-            path_sweep(insert, arc(r=interlock_arc_r, angle=[
-              -43 + interlock_arc_ang/2,
-              -45 - interlock_arc_ang/2
+            path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
+              90 + interlock_arc_ang/2,
+              0 - interlock_arc_ang/2
             ]));
 
           }
 
       }
 
-      if (label_size > 0) {
-        if (label_depth_top > 0) {
-          tag("remove")
-          position("inner_up")
-          down(label_depth_top/2)
-          zrot(-45)
-          fwd(label_size)
-            text3d(str("H", h), h=label_depth_top+$eps, size=label_size, anchor=CENTER, atype="ycenter");
-        }
+      if (label_size > 0 && label_depth > 0) {
 
-        if (label_depth_bottom > 0) {
-          tag("remove")
-          position("inner_down")
-          up(label_depth_bottom/2)
-          zrot(-45)
-          xflip()
-          fwd(label_size)
-            text3d(str("H", h), h=label_depth_bottom+$eps, size=label_size, anchor=CENTER, atype="ycenter");
-        }
+        tag("remove")
+        position("inner_up")
+        down(label_depth/2)
+        zrot(-45)
+        fwd(label_size)
+          text3d(str("H", h), h=label_depth+$eps, size=label_size, atype="ycenter", anchor=CENTER);
+
+        tag("remove")
+        right(size.x/3)
+        back(label_size)
+        down(label_depth/2)
+        up(size.z/2)
+        position(FRONT)
+          text3d(str("X", struct_val(prof, "x_slot").x), h=label_depth+$eps, size=label_size, atype="baseline", anchor=CENTER, orient=UP, spin=0);
+
+        tag("remove")
+        back(size.y/3)
+        right(label_size)
+        down(label_depth/2)
+        up(size.z/2)
+        position(LEFT)
+          text3d(str("Y", struct_val(prof, "y_slot").x), h=label_depth+$eps, size=label_size, atype="baseline", anchor=CENTER, orient=UP, spin=-90);
 
       }
 
@@ -637,7 +676,7 @@ if (mode == 0) {
 }
 
 else if (mode == 10) {
-  rail(20);
+  rail(20, full_arc_preview = true);
 }
 
 else if (mode == 11) {
@@ -656,7 +695,7 @@ else if (mode == 11) {
   // 762.0 = 200 + 200 + 179 + 183.0
 
   // TODO imprint inside for ID
-  rail(200);
+  rail(200, full_arc_preview = true);
 
   // TODO attach buddies to named anchor points
   // filter_panel(orient=FRONT, anchor=LEFT);
@@ -664,16 +703,81 @@ else if (mode == 11) {
 
 }
 
-else if (mode == 100) {
+else if (mode == 101) {
+  filter_panel(orient=FRONT);
+}
 
-  zrot(-90)
-  path_sweep(
-    hexagon(
-      d=interlock_d,
-      rounding=chamfer
-    ),
-    arc(r=25, angle=-90),
-  );
+else if (mode == 102) {
+  prof = rail_profile();
+  color("red") down(.2) polygon(struct_val(prof, "basic_path"));
+  color("blue") down(.1) polygon(struct_val(prof, "cut_path"));
+  color("yellow") polygon(struct_val(prof, "smooth_path"));
+}
+
+else if (mode == 103) {
+  n = interlock_ngon;
+
+  bar = interlock_profile(tolerance=0);
+  profile = interlock_profile(tolerance=tolerance, sharp=true);
+  insert = interlock_profile(tolerance=tolerance, open=true, sharp=true);
+  cutaway = cutaway_shape(
+    norm([size.x, size.y])/2 - interlock_arc_r,
+    size.z,
+    insert);
+
+  color("blue")
+  polygon(profile);
+
+  up(0.1) color("red")
+  polygon(bar);
+
+  down(0.1) color("yellow")
+  polygon(insert);
+
+  down(0.2) color("green")
+  polygon(cutaway);
+}
+
+else if (mode == 100) {
+  prof = rail_body(50);
+  size = struct_val(prof, "size");
+  xat = struct_val(prof, "x_slot_at");
+  yat = struct_val(prof, "y_slot_at");
+  pat = struct_val(prof, "pivot_at");
+
+  interlock_arc_base = norm([xat.x - yat.x, xat.y - yat.y]);
+  interlock_arc_r = norm([xat.x - pat.x, xat.y - pat.y]);
+  interlock_arc_ang = 2*asin((interlock_arc_base/2)/interlock_arc_r);
+
+  bar = interlock_profile(tolerance=0);
+  profile = interlock_profile(tolerance=tolerance, sharp=true);
+  insert = interlock_profile(tolerance=tolerance, open=true, sharp=true);
+  bounds = pointlist_bounds(profile);
+  profile_h = bounds[1].y - bounds[0].y;
+
+  cutaway = cutaway_shape(
+    norm([size.x, size.y])/2 - interlock_arc_r,
+    size.z,
+    insert);
+
+  diff() rail_body(size.z)
+  position("pivot_down")
+  down(tolerance) up(profile_h/2)
+  {
+    if ($preview) {
+      tag("keep")
+      zrot(180) color("red")
+      path_sweep(bar, arc(r=interlock_arc_r, angle=[
+        -135 + interlock_arc_ang/2,
+        -135 - interlock_arc_ang/2
+      ]));
+    }
+    tag("remove")
+    path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
+      90 + interlock_arc_ang/2,
+      0 - interlock_arc_ang/2
+    ]));
+  }
 
   // {
   // // position(TOP) #sphere(1);
@@ -683,29 +787,18 @@ else if (mode == 100) {
   // // #cube($parent_size, center=true);
   // }
 
-}
+  // rail(50)
+  // // rail_body(50)
+  // {
+  //   // show_anchors(s = 10, std = false, custom = true);
+  //   // position(TOP) #sphere(1);
+  //   %show_anchors(std=false);
+  //   // zrot(-45)
+  //   // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
+  //   // #cube($parent_size, center=true);
+  // }
 
-else if (mode == 101) {
-  prof = rail_profile();
-  color("red") down(.2) polygon(struct_val(prof, "basic_path"));
-  color("blue") down(.1) polygon(struct_val(prof, "cut_path"));
-  color("yellow") polygon(struct_val(prof, "smooth_path"));
 }
-
-else if (mode == 102) {
-  filter_panel(orient=FRONT);
-}
-
-// rail(50)
-// // rail_body(50)
-// {
-//   // show_anchors(s = 10, std = false, custom = true);
-//   // position(TOP) #sphere(1);
-//   %show_anchors(std=false);
-//   // zrot(-45)
-//   // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-//   // #cube($parent_size, center=true);
-// }
 
 // module XXX(anchor = CENTER, spin = 0, orient = UP) {
 //   size = [XXX.x, XXX.z, XXX.y];
