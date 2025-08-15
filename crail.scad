@@ -29,6 +29,12 @@ include <BOSL2/rounding.scad>;
 - cut entire curved arc away from interior bulkhead
 - added X and Y slot size labels
 
+## Next
+
+- added top chamfer to pivot pin
+- strengthened pivot pin with internal micro fins
+- strengthened interlock arc with an internal micro fin
+
 ## WIP
 
 ## TODO
@@ -505,6 +511,7 @@ module pivot_pin(size=pivot_pin, anchor = CENTER, spin = 0, orient = UP) {
       d1=size.x,
       d2=size.x - 2*chamfer,
       chamfer1=-chamfer,
+      chamfer2=chamfer,
     );
     children();
   }
@@ -517,6 +524,7 @@ module pivot_hole(size=pivot_pin, anchor = CENTER, spin = 0, orient = UP) {
       d1=size.x + 2 * tolerance,
       d2=size.x - 2*chamfer + 2 * tolerance,
       chamfer1=-chamfer,
+      chamfer2=chamfer,
     );
     children();
   }
@@ -555,7 +563,12 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
 
       if (pivot_pin.x > 0) {
         tag("remove") attach("pivot_down", TOP, overlap=5) pivot_hole();
-        attach("pivot_up", BOTTOM) pivot_pin();
+        attach("pivot_up", BOTTOM) pivot_pin()
+          down(feature) position(TOP)
+          #tag("remove") {
+            cuboid([pivot_pin.x/2, feature/2, pivot_pin.y*1.5-feature], anchor=BOTTOM, orient=DOWN);
+            cuboid([feature/2, pivot_pin.x/2, pivot_pin.y*1.5-feature], anchor=BOTTOM, orient=DOWN);
+          }
       }
 
       if (interlock_d > 0) {
@@ -616,6 +629,13 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
             -134 + interlock_arc_ang/2,
             -136 - interlock_arc_ang/2
           ]));
+
+          tag("remove")
+          down(profile_h/4 + feature)
+            #path_sweep(rect([feature/2, profile_h*1.5 - feature]), arc(r=interlock_arc_r, angle=[
+              -137 + interlock_arc_ang/2,
+              -133 - interlock_arc_ang/2
+            ]));
 
           if ($preview && full_arc_preview) {
             tag("keep")
