@@ -1,0 +1,13 @@
+{
+    "fileFormatVersion": "1",
+    "parameterSets": {
+
+        "river_box_fan": {
+            "fan_frame_rounding": "71",
+            "fan_frame_size": "[522, 522, 120]",
+            "fan_frame_thickness": "1",
+            "fan_frame_width": "19.25"
+        }
+
+    }
+}

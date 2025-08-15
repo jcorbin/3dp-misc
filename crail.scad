@@ -196,20 +196,13 @@ top_corner_extra = 60;
 
 /* [Box Fan] */
 
-fan_frame_size = [
+fan_frame_size = [ 558.8, 558.8, 127.0 ]; // 22x22x5 inch guess
 
-  // nominal 20-inch fan witha nominal 22x22x5 inch frame
-  22 * 25.4,
-  22 * 25.4,
-  5 * 25.4
+fan_frame_width = 25.4; // 1 inch guess
 
-];
+fan_frame_rounding = 76.2; // 3 inch guess
 
-fan_frame_width = 25.4; // nominal guess
-
-fan_frame_rounding = 3 * 25.4; // nominal 3-inch rounding
-
-fan_frame_thickness = 2; // nominal guess
+fan_frame_thickness = 2;
 
 /* [Part Selection] */
 
