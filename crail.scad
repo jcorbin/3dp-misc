@@ -40,7 +40,6 @@ include <BOSL2/rounding.scad>;
 
 */
 
-
 /* [Geometry Detail] */
 
 // Fragment minimum angle.
@@ -80,7 +79,7 @@ rail_wall = 12;
 /* [Rail Interlocks] */
 
 // Optional pivot pin to index each rail before engaging interlock dovetail.
-pivot_pin = 6;
+pivot_pin = [ 6, 5 ];
 
 // Diamter of interlocking dovetail.
 interlock_d = 8;
@@ -116,7 +115,8 @@ label_size = 4;
 // Font emboss depth.
 label_depth = 0.4;
 
-/* [Target Filter Panel] */
+/* [Filter Panel] */
+
 filter_size = [
 
   // NOTE these are nominally 20x20x1 (all in inches) panels on spec...
@@ -145,6 +145,9 @@ filter_baffle_thickness = 2;
 /* [Part Selection] */
 
 mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Filer Panel, 102:Rail Profile, 103:Interlock Profile]
+
+// Section cutaway in previe mode.
+preview_cut = false;
 
 /// dispatch / integration
 
@@ -495,16 +498,45 @@ module rail_body(h,
   }
 }
 
-module rail(h, anchor = CENTER, spin = 0, orient = UP, full_arc_preview = false) {
+module pivot_pin(size=pivot_pin, anchor = CENTER, spin = 0, orient = UP) {
+  attachable(anchor, spin, orient, d=size.x, h=size.y) {
+    cyl(
+      h=size.y,
+      d1=size.x,
+      d2=size.x - 2*chamfer,
+      chamfer1=-chamfer,
+    );
+    children();
+  }
+}
+
+module pivot_hole(size=pivot_pin, anchor = CENTER, spin = 0, orient = UP) {
+  attachable(anchor, spin, orient, d=size.x, h=size.y) {
+    cyl(
+      h=size.y + $eps,
+      d1=size.x + 2 * tolerance,
+      d2=size.x - 2*chamfer + 2 * tolerance,
+      chamfer1=-chamfer,
+    );
+    children();
+  }
+}
+
+module rail(h, anchor = CENTER, spin = 0, orient = UP,
+  full_arc_preview = false,
+) {
   prof = rail_body(h);
   size = struct_val(prof, "size");
-  wall = struct_val(prof, "wall");
+  pivot_at = struct_val(prof, "pivot_at");
 
   attachable(anchor, spin, orient, size=size, anchors=[
+    named_anchor("pivot",  pivot_at, UP),
+    named_anchor("pivot_up", [ pivot_at.x, pivot_at.y, size.z/2 ], UP),
+    named_anchor("pivot_down", [ pivot_at.x, pivot_at.y, -size.z/2 ], DOWN),
+
     named_anchor("x_slot",  struct_val(prof, "x_slot_at"), RIGHT),
     named_anchor("y_slot",  struct_val(prof, "y_slot_at"), BACK),
   ]) {
-
     diff() rail_body(h) {
 
       if (bore_d) {
@@ -514,28 +546,23 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP, full_arc_preview = false)
       }
 
       if (thru_d && thru_every && h >= thru_every + thru_d) {
-      tag("remove")
+        tag("remove")
         attach("thru_x", FRONT, overlap=60.5)
           zrot(45)
           ycopies(l=h - 2*thru_margin, spacing=thru_every)
           teardrop(d=thru_d, h=75);
       }
 
-      if (pivot_pin > 0) {
-        tag("remove") {
-          attach("pivot_down", TOP, overlap=5)
-            cyl(d1=pivot_pin + 2 * tolerance, d2=pivot_pin - 2*chamfer + 2 * tolerance, h=5+$eps, chamfer1=-chamfer);
-        }
-        attach("pivot_up", BOTTOM)
-          cyl(d1=pivot_pin, d2=pivot_pin - 2*chamfer, h=5, chamfer1=-chamfer);
+      if (pivot_pin.x > 0) {
+        tag("remove") attach("pivot_down", TOP, overlap=5) pivot_hole();
+        attach("pivot_up", BOTTOM) pivot_pin();
       }
 
       if (interlock_d > 0) {
         xat = struct_val(prof, "x_slot_at");
         yat = struct_val(prof, "y_slot_at");
-        pat = struct_val(prof, "pivot_at");
         interlock_arc_base = norm([xat.x - yat.x, xat.y - yat.y]);
-        interlock_arc_r = norm([xat.x - pat.x, xat.y - pat.y]);
+        interlock_arc_r = norm([xat.x - pivot_at.x, xat.y - pivot_at.y]);
         interlock_arc_ang = 2*asin((interlock_arc_base/2)/interlock_arc_r);
 
         tag("remove") {
@@ -550,6 +577,30 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP, full_arc_preview = false)
           back($eps)
           attach("y_slot", BOTTOM)
             cuboid([1.5*interlock_d, 1.5*interlock_d, 5]);
+
+          position("pivot_down")
+          let(
+            profile = interlock_profile(tolerance=tolerance, sharp=true),
+            insert = interlock_profile(tolerance=tolerance, sharp=true, open=true),
+            bounds = pointlist_bounds(profile),
+            profile_h = bounds[1].y - bounds[0].y,
+            cutaway = cutaway_shape(
+              norm([size.x, size.y])/2 - interlock_arc_r,
+              size.z,
+              insert),
+          )
+            down(tolerance) up(profile_h/2) {
+              down($eps)
+              path_sweep(profile, arc(r=interlock_arc_r, angle=[
+                -134 + interlock_arc_ang/2,
+                -136 - interlock_arc_ang/2
+              ]));
+              path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
+                90 + interlock_arc_ang/2,
+                0 - interlock_arc_ang/2
+              ]));
+            }
+
         }
 
         position("pivot_up")
@@ -575,35 +626,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP, full_arc_preview = false)
               -136 - (180 - interlock_arc_ang/2)
             ]));
           }
-
         }
-
-        tag("remove")
-        position("pivot_down")
-        let(
-          profile = interlock_profile(tolerance=tolerance, sharp=true),
-          insert = interlock_profile(tolerance=tolerance, sharp=true, open=true),
-          bounds = pointlist_bounds(profile),
-          profile_h = bounds[1].y - bounds[0].y,
-          cutaway = cutaway_shape(
-            norm([size.x, size.y])/2 - interlock_arc_r,
-            size.z,
-            insert),
-        )
-          down(tolerance) up(profile_h/2) {
-
-            down($eps)
-            path_sweep(profile, arc(r=interlock_arc_r, angle=[
-              -134 + interlock_arc_ang/2,
-              -136 - interlock_arc_ang/2
-            ]));
-
-            path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
-              90 + interlock_arc_ang/2,
-              0 - interlock_arc_ang/2
-            ]));
-
-          }
 
       }
 
@@ -641,11 +664,11 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP, full_arc_preview = false)
     children();
   }
 
-
 }
-module preview_cut() {
-  if ($preview)
-    back_half(s=10000) children();
+
+module preview_cut(v=BACK, s=10000) {
+  if ($preview && preview_cut)
+    half_of(v=v, s=s) children();
   else
     children();
 }
@@ -669,14 +692,15 @@ if (mode == 0) {
           attach("x_slot", LEFT, spin=180)
           filter_panel();
 
-   }
+  }
 
   // TODO model the baseplate ; may be 5th filter dba base
 
 }
 
 else if (mode == 10) {
-  rail(20, full_arc_preview = true);
+  preview_cut(v=[-1, 1, 0])
+    rail(20, full_arc_preview = !preview_cut);
 }
 
 else if (mode == 11) {
@@ -739,64 +763,15 @@ else if (mode == 103) {
 }
 
 else if (mode == 100) {
-  prof = rail_body(50);
-  size = struct_val(prof, "size");
-  xat = struct_val(prof, "x_slot_at");
-  yat = struct_val(prof, "y_slot_at");
-  pat = struct_val(prof, "pivot_at");
 
-  interlock_arc_base = norm([xat.x - yat.x, xat.y - yat.y]);
-  interlock_arc_r = norm([xat.x - pat.x, xat.y - pat.y]);
-  interlock_arc_ang = 2*asin((interlock_arc_base/2)/interlock_arc_r);
-
-  bar = interlock_profile(tolerance=0);
-  profile = interlock_profile(tolerance=tolerance, sharp=true);
-  insert = interlock_profile(tolerance=tolerance, open=true, sharp=true);
-  bounds = pointlist_bounds(profile);
-  profile_h = bounds[1].y - bounds[0].y;
-
-  cutaway = cutaway_shape(
-    norm([size.x, size.y])/2 - interlock_arc_r,
-    size.z,
-    insert);
-
-  diff() rail_body(size.z)
-  position("pivot_down")
-  down(tolerance) up(profile_h/2)
+  pivot_pin()
   {
-    if ($preview) {
-      tag("keep")
-      zrot(180) color("red")
-      path_sweep(bar, arc(r=interlock_arc_r, angle=[
-        -135 + interlock_arc_ang/2,
-        -135 - interlock_arc_ang/2
-      ]));
-    }
-    tag("remove")
-    path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
-      90 + interlock_arc_ang/2,
-      0 - interlock_arc_ang/2
-    ]));
+  // position(TOP) #sphere(1);
+  %show_anchors(std=false);
+  // zrot(-45)
+  // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
+  %cube($parent_size, center=true);
   }
-
-  // {
-  // // position(TOP) #sphere(1);
-  // // %show_anchors(std=false);
-  // // zrot(-45)
-  // // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-  // // #cube($parent_size, center=true);
-  // }
-
-  // rail(50)
-  // // rail_body(50)
-  // {
-  //   // show_anchors(s = 10, std = false, custom = true);
-  //   // position(TOP) #sphere(1);
-  //   %show_anchors(std=false);
-  //   // zrot(-45)
-  //   // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-  //   // #cube($parent_size, center=true);
-  // }
 
 }
 
