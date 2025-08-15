@@ -34,6 +34,7 @@ include <BOSL2/rounding.scad>;
 - added top chamfer to pivot pin
 - strengthened pivot pin with internal micro fins
 - strengthened interlock arc with an internal micro fin
+- increased rail rounding
 
 ## WIP
 
@@ -74,10 +75,10 @@ wall = 1.2;
 /* [Rail Body Shape] */
 
 // Main outer corner rounding; the big one.
-rail_outer_rounding = 30;
+rail_outer_rounding = 60;
 
 // Minor outer corner rounding; these are the outside corners of the interior edges.
-rail_inner_rounding = 2.4;
+rail_inner_rounding = 9.5;
 
 // Wall thickness beside filter slots.
 rail_wall = 12;
@@ -111,7 +112,7 @@ thru_every = 30;
 thru_margin = 15;
 
 // Additional X/Y setback of thru hole bores from outer rounding start; postive values make the thru hole more shallow.
-thru_offset = 5;
+thru_offset = 20;
 
 /* [Rail Size Lables] */
 
