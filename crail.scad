@@ -326,14 +326,34 @@ function rail_profile(
   inner_plate = sqrt(y_slot.y^2 + x_slot.y^2),
   inner_travel = wall, // TODO kill this, let rounding handle the blend to 45? leave it 90?
 
+  pivot_at = [
+    wid/2 - x_slot.y,
+    hei/2 - y_slot.y,
+    0 ],
+  x_slot_at = [
+    pivot_at.x,
+    wall - hei/2 + x_slot.x/2,
+    0 ],
+  y_slot_at = [
+    wall - wid/2 + y_slot.x/2,
+    pivot_at.y,
+    0 ],
+  inner_at = [
+    wid/2 - x_slot.y/2,
+    hei/2 - y_slot.y/2,
+    0 ],
+  spine_at = rot(-45, cp=pivot_at, p=[x_slot_at.x, x_slot_at.y, 0] ),
+
+  thru_loc = outer_rounding - thru_offset,
+
   // TODO slot draft angle ; inteead of lip chamfer?
 
   moves = [
     "move", wid,
 
     "turn",
-
     "move", wall,
+
     "turn",
     "move", x_slot.y,
     "turn", -90,
@@ -408,6 +428,14 @@ function rail_profile(
   ["inner_plate", inner_plate],
   ["width", wid],
   ["height", hei],
+
+  ["pivot_at", pivot_at],
+  ["x_slot_at", x_slot_at],
+  ["y_slot_at", y_slot_at],
+  ["inner_at", inner_at],
+  ["spine_at", spine_at],
+  ["thru_loc", thru_loc],
+
   ["moves", moves],
   ["basic_path", basic_path],
   ["cut_path", cut_path],
@@ -421,42 +449,8 @@ function rail_body(h) = let(
     struct_val(prof, "height"),
     h
   ],
-
-  wall = struct_val(prof, "wall"),
-  x_slot = struct_val(prof, "x_slot"),
-  y_slot = struct_val(prof, "y_slot"),
-
-  pivot_at = [
-    size.x/2 - x_slot.y,
-    size.y/2 - y_slot.y,
-    0 ],
-
-  x_slot_at = [
-    pivot_at.x,
-    -size.y/2 + wall + x_slot.x/2,
-    0 ],
-  y_slot_at = [
-    -size.x/2 + wall + y_slot.x/2,
-    pivot_at.y,
-    0 ],
-
-  outer_rounding = struct_val(prof, "outer_rounding"),
-  thru_loc = outer_rounding - thru_offset,
-
-  inner_at = [
-    size.x/2 - x_slot.y/2,
-    size.y/2 - y_slot.y/2,
-    0 ],
-
-  spine_at = rot(-45, cp=pivot_at, p=[x_slot_at.x, x_slot_at.y, 0] ),
 ) concat(prof, [
   ["size", size],
-  ["x_slot_at", x_slot_at],
-  ["y_slot_at", y_slot_at],
-  ["thru_loc", thru_loc],
-  ["pivot_at", pivot_at],
-  ["inner_at", inner_at],
-  ["spine_at", spine_at],
 ]);
 
 module rail_body(h,
