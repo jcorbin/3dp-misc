@@ -38,6 +38,8 @@ include <BOSL2/rounding.scad>;
 
 ## WIP
 
+- box fan mount
+
 ## TODO
 
 - fan holder / grip / mount part; will interlock top side rail
@@ -149,9 +151,26 @@ filter_baffle_pitch = 20;
 
 filter_baffle_thickness = 2;
 
+/* [Box Fan] */
+
+fan_frame_size = [
+
+  // nominal 20-inch fan witha nominal 22x22x5 inch frame
+  22 * 25.4,
+  22 * 25.4,
+  5 * 25.4
+
+];
+
+fan_frame_width = 25.4; // nominal guess
+
+fan_frame_rounding = 3 * 25.4; // nominal 3-inch rounding
+
+fan_frame_thickness = 2; // nominal guess
+
 /* [Part Selection] */
 
-mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 100:Dev, 101:Filer Panel, 102:Rail Profile, 103:Interlock Profile]
+mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 12:Fan Mount, 100:Dev, 101:Filer Panel, 102:Rail Profile, 103:Interlock Profile]
 
 // Section cutaway in previe mode.
 preview_cut = false;
@@ -309,6 +328,45 @@ module filter_panel(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+module box_fan(anchor = CENTER, spin = 0, orient = UP) {
+  attachable(anchor, spin, orient, size=fan_frame_size) {
+    render() diff() cuboid(fan_frame_size, rounding=fan_frame_rounding, edges="Z") {
+
+      interior_size = fan_frame_size - [
+        2*fan_frame_thickness,
+        2*fan_frame_thickness,
+        2*fan_frame_thickness,
+      ];
+      interior_rounding = fan_frame_rounding - fan_frame_thickness;
+
+      window_size = [
+        fan_frame_size.x - 2*fan_frame_width,
+        fan_frame_size.y - 2*fan_frame_width,
+        fan_frame_thickness + 2*$eps
+      ];
+      window_rounding = fan_frame_rounding - fan_frame_width;
+
+      // front/back window cutouts
+      tag("remove")
+        attach([TOP, BOTTOM], BOTTOM, overlap=fan_frame_thickness+$eps)
+        cuboid(window_size, rounding=window_rounding, edges="Z");
+
+      // interior hollow
+      tag("remove")
+        attach(CENTER, CENTER)
+        cuboid(interior_size, rounding=interior_rounding, edges="Z");
+
+      // TODO grills
+      // TODO struts
+      // TODO spindle
+      // TODO blades
+      // TODO controls
+
+    }
+    children();
+  }
+}
+
 function rail_profile(
   x_slot = filter_slot,
   y_slot = filter_slot,
@@ -348,6 +406,16 @@ function rail_profile(
 
   // TODO slot draft angle ; inteead of lip chamfer?
 
+  solid_moves = [
+    "move", wid,
+    "turn",
+    "move", wall + x_slot.x + inner_travel,
+    "turn", 45,
+    "move", inner_plate,
+    "turn", 45,
+    "move", inner_travel + y_slot.x + wall,
+  ],
+
   moves = [
     "move", wid,
 
@@ -379,6 +447,7 @@ function rail_profile(
   ],
 
   basic_path = turtle(moves, state=[[start], [1, 0], 90, 0]),
+  solid_basic_path = turtle(solid_moves, state=[[start], [1, 0], 90, 0]),
 
   cut_path = round_corners(basic_path, method="chamfer", cut=[
     0,
@@ -416,6 +485,15 @@ function rail_profile(
     inner_rounding
   ]),
 
+  solid_smooth_path = round_corners(solid_basic_path, method="smooth", k=0.5, joint=[
+    outer_rounding,
+    inner_rounding,
+    chamfer,
+    chamfer,
+    inner_rounding
+  ]),
+
+
 ) [
   ["x_slot", x_slot],
   ["y_slot", y_slot],
@@ -440,6 +518,9 @@ function rail_profile(
   ["basic_path", basic_path],
   ["cut_path", cut_path],
   ["smooth_path", smooth_path],
+
+  ["solid_moves", solid_moves],
+  ["solid_smooth_path", solid_smooth_path],
 ];
 
 function rail_body(h) = let(
@@ -453,10 +534,10 @@ function rail_body(h) = let(
   ["size", size],
 ]);
 
-module rail_body(h,
+module rail_body(h, anchor = CENTER, spin = 0, orient = UP,
+  solid = false,
   chamfer1 = chamfer,
   chamfer2 = 0,
-  anchor = CENTER, spin = 0, orient = UP
 ) {
   prof = rail_body(h);
   size = struct_val(prof, "size");
@@ -488,7 +569,7 @@ module rail_body(h,
     named_anchor("thru_y", [ -size.x/2, -size.y/2 + thru_loc, 0 ], [ -1, 1, 0 ]),
   ]) {
     offset_sweep(
-      struct_val(prof, "smooth_path"),
+      struct_val(prof, solid ? "solid_smooth_path" : "smooth_path"),
       h=h,
       cp="box",
       bot=chamfer1 ? os_chamfer(cut=chamfer1) : undef,
@@ -529,10 +610,15 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
   full_arc_preview = false,
   interlock_up = true,
   interlock_down = true,
+  solid = false,
 ) {
   prof = rail_body(h);
   size = struct_val(prof, "size");
   pivot_at = struct_val(prof, "pivot_at");
+
+  cutaway_slant = solid;
+  with_x_slot = !solid;
+  with_y_slot = !solid;
 
   attachable(anchor, spin, orient, size=size, anchors=[
     named_anchor("pivot",  pivot_at, UP),
@@ -542,7 +628,8 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
     named_anchor("x_slot",  struct_val(prof, "x_slot_at"), RIGHT),
     named_anchor("y_slot",  struct_val(prof, "y_slot_at"), BACK),
   ]) {
-    diff() rail_body(h) {
+    tag_scope("rail_body")
+    diff() rail_body(h, solid = solid) {
 
       if (bore_d) {
         tag("remove")
@@ -599,15 +686,40 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
               insert),
           )
             down(tolerance) up(profile_h/2) {
-              down($eps)
-              path_sweep(profile, arc(r=interlock_arc_r, angle=[
-                -134 + interlock_arc_ang/2,
-                -136 - interlock_arc_ang/2
-              ]));
-              path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
-                90 + interlock_arc_ang/2,
-                0 - interlock_arc_ang/2
-              ]));
+              channel_length = interlock_arc_ang/2 + 25;
+              cut_length = interlock_arc_ang/2;
+
+              if (cutaway_slant) {
+                down($eps)
+                path_sweep(profile, arc(r=interlock_arc_r, angle=[
+                  -90 + channel_length,
+                  -180 - channel_length
+                ]));
+
+                let (
+                  s=6 * interlock_arc_r,
+                  spin=-45,
+                  fudge = 3.4 // XXX why
+                )
+                zrot(-spin)
+                half_of(v=[1, 0, -1], cp=DOWN * fudge, s=s)
+                zrot(spin)
+                  path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
+                    90 + cut_length,
+                    0 - cut_length
+                  ]));
+              } else {
+                down($eps)
+                path_sweep(profile, arc(r=interlock_arc_r, angle=[
+                  -134 + channel_length,
+                  -136 - channel_length
+                ]));
+                path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
+                  90 + cut_length,
+                  0 - cut_length
+                ]));
+              }
+
             }
         }
 
@@ -661,6 +773,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
 
       if (label_size > 0 && label_depth > 0) {
 
+        // TODO option for different placement when cutting away top for fan_mount
         tag("remove")
         position("inner_up")
         down(label_depth/2)
@@ -668,21 +781,25 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
         fwd(label_size)
           text3d(str("H", h), h=label_depth+$eps, size=label_size, atype="ycenter", anchor=CENTER);
 
-        tag("remove")
-        right(size.x/3)
-        back(label_size)
-        down(label_depth/2)
-        up(size.z/2)
-        position(FRONT)
-          text3d(str("X", struct_val(prof, "x_slot").x), h=label_depth+$eps, size=label_size, atype="baseline", anchor=CENTER, orient=UP, spin=0);
+        if (with_x_slot) {
+          tag("remove")
+          right(size.x/3)
+          back(label_size)
+          down(label_depth/2)
+          up(size.z/2)
+          position(FRONT)
+            text3d(str("X", struct_val(prof, "x_slot").x), h=label_depth+$eps, size=label_size, atype="baseline", anchor=CENTER, orient=UP, spin=0);
+        }
 
-        tag("remove")
-        back(size.y/3)
-        right(label_size)
-        down(label_depth/2)
-        up(size.z/2)
-        position(LEFT)
-          text3d(str("Y", struct_val(prof, "y_slot").x), h=label_depth+$eps, size=label_size, atype="baseline", anchor=CENTER, orient=UP, spin=-90);
+        if (with_y_slot) {
+          tag("remove")
+          back(size.y/3)
+          right(label_size)
+          down(label_depth/2)
+          up(size.z/2)
+          position(LEFT)
+            text3d(str("Y", struct_val(prof, "y_slot").x), h=label_depth+$eps, size=label_size, atype="baseline", anchor=CENTER, orient=UP, spin=-90);
+        }
 
       }
 
@@ -694,6 +811,25 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
   }
 }
 
+module fan_mount(depth) {
+  prof = rail_profile();
+  pivot_at = struct_val(prof, "pivot_at");
+
+  tag("remove")
+  up(rail_wall)
+  up(interlock_d)
+  down(depth)
+  back(pivot_at.y)
+  right(pivot_at.x)
+  right(filter_size.x/2)
+  back(filter_size.y/2)
+  cuboid(
+    fan_frame_size + [2*tolerance, 2*tolerance, 0],
+    rounding=fan_frame_rounding, edges="Z",
+    anchor=BOTTOM
+    );
+}
+
 module preview_cut(v=BACK, s=10000) {
   if ($preview && preview_cut)
     half_of(v=v, s=s) children();
@@ -703,6 +839,9 @@ module preview_cut(v=BACK, s=10000) {
 
 if (mode == 0) {
 
+  fwd(filter_size.z/2)
+  fwd(filter_size.y/2)
+  fwd(rail_wall)
   filter_panel(orient=FRONT) {
     attach(LEFT, "x_slot", spin=180)
     rail(500)
@@ -721,6 +860,9 @@ if (mode == 0) {
           filter_panel();
 
   }
+
+  up(filter_size.y/2 + 10) // XXX mounting gap ala fan mount part
+  box_fan(anchor=BOTTOM, orient=UP);
 
   // TODO model the baseplate ; may be 5th filter dba base
 
@@ -752,6 +894,19 @@ else if (mode == 11) {
   // TODO attach buddies to named anchor points
   // filter_panel(orient=FRONT, anchor=LEFT);
   // filter_panel(orient=RIGHT, anchor=FRONT);
+
+}
+
+else if (mode == 12) {
+
+  // ydistribute(spacing=struct_val(rail_profile(), "width")) {
+
+  diff() rail(50, solid=true, interlock_up=false) {
+    tag("remove") fan_mount(25);
+  }
+
+  //   zrot(-90) rail(50, full_arc_preview=true);
+  // }
 
 }
 
