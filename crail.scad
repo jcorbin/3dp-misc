@@ -527,6 +527,8 @@ module pivot_hole(size=pivot_pin, anchor = CENTER, spin = 0, orient = UP) {
 
 module rail(h, anchor = CENTER, spin = 0, orient = UP,
   full_arc_preview = false,
+  interlock_up = true,
+  interlock_down = true,
 ) {
   prof = rail_body(h);
   size = struct_val(prof, "size");
@@ -557,35 +559,34 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
       }
 
       if (pivot_pin.x > 0) {
-        tag("remove") attach("pivot_down", TOP, overlap=5) pivot_hole();
-        attach("pivot_up", BOTTOM) pivot_pin()
-          down(feature) position(TOP)
-          #tag("remove") {
-            cuboid([pivot_pin.x/2, feature/2, pivot_pin.y*1.5-feature], anchor=BOTTOM, orient=DOWN);
-            cuboid([feature/2, pivot_pin.x/2, pivot_pin.y*1.5-feature], anchor=BOTTOM, orient=DOWN);
-          }
+        if (interlock_down) {
+          tag("remove")
+          attach("pivot_down", TOP, overlap=5)
+            pivot_hole();
+        }
+        if (interlock_up) {
+          attach("pivot_up", BOTTOM) pivot_pin()
+            down(feature) position(TOP)
+            #tag("remove") {
+              cuboid([pivot_pin.x/2, feature/2, pivot_pin.y*1.5-feature], anchor=BOTTOM, orient=DOWN);
+              cuboid([feature/2, pivot_pin.x/2, pivot_pin.y*1.5-feature], anchor=BOTTOM, orient=DOWN);
+            }
+        }
       }
 
       if (interlock_d > 0) {
         xat = struct_val(prof, "x_slot_at");
         yat = struct_val(prof, "y_slot_at");
         interlock_arc_base = norm([xat.x - yat.x, xat.y - yat.y]);
-        interlock_arc_r = norm([xat.x - pivot_at.x, xat.y - pivot_at.y]);
+        interlock_arc = [
+          xat.x - pivot_at.x,
+          xat.y - pivot_at.y
+        ];
+        interlock_arc_r = norm(interlock_arc);
         interlock_arc_ang = 2*asin((interlock_arc_base/2)/interlock_arc_r);
 
-        tag("remove") {
-          up(interlock_d/2)
-          up(size.z/2)
-          right($eps)
-          attach("x_slot", BOTTOM)
-            cuboid([1.5*interlock_d, 1.5*interlock_d, 5]);
-
-          up(interlock_d/2)
-          up(size.z/2)
-          back($eps)
-          attach("y_slot", BOTTOM)
-            cuboid([1.5*interlock_d, 1.5*interlock_d, 5]);
-
+        if (interlock_down) {
+          tag("remove")
           position("pivot_down")
           let(
             profile = interlock_profile(tolerance=tolerance, sharp=true),
@@ -608,38 +609,51 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
                 0 - interlock_arc_ang/2
               ]));
             }
-
         }
 
-        position("pivot_up")
-        let (
-          profile = interlock_profile(tolerance=0),
-          bounds = pointlist_bounds(profile),
-          profile_h = bounds[1].y - bounds[0].y,
-        )
-        down(tolerance)
-        up(profile_h/2) {
+        if (interlock_up) {
+          tag("remove") {
+            up(interlock_d/2)
+            up(size.z/2)
+            right($eps)
+            attach("x_slot", BOTTOM)
+              cuboid([1.5*interlock_d, 1.5*interlock_d, 5]);
+            up(interlock_d/2)
+            up(size.z/2)
+            back($eps)
+            attach("y_slot", BOTTOM)
+              cuboid([1.5*interlock_d, 1.5*interlock_d, 5]);
+          }
 
-          path_sweep(profile, arc(r=interlock_arc_r, angle=[
-            -134 + interlock_arc_ang/2,
-            -136 - interlock_arc_ang/2
-          ]));
-
-          tag("remove")
-          down(profile_h/4 + feature)
-            #path_sweep(rect([feature/2, profile_h*1.5 - feature]), arc(r=interlock_arc_r, angle=[
-              -137 + interlock_arc_ang/2,
-              -133 - interlock_arc_ang/2
-            ]));
-
-          if ($preview && full_arc_preview) {
-            tag("keep")
-            recolor("#ff663388")
-            zrot(180)
+          position("pivot_up")
+          let (
+            profile = interlock_profile(tolerance=0),
+            bounds = pointlist_bounds(profile),
+            profile_h = bounds[1].y - bounds[0].y,
+          )
+          down(tolerance)
+          up(profile_h/2) {
             path_sweep(profile, arc(r=interlock_arc_r, angle=[
-              -134 + (180 - interlock_arc_ang/2),
-              -136 - (180 - interlock_arc_ang/2)
+              -134 + interlock_arc_ang/2,
+              -136 - interlock_arc_ang/2
             ]));
+
+            tag("remove")
+            down(profile_h/4 + feature)
+              #path_sweep(rect([feature/2, profile_h*1.5 - feature]), arc(r=interlock_arc_r, angle=[
+                -137 + interlock_arc_ang/2,
+                -133 - interlock_arc_ang/2
+              ]));
+
+            if ($preview && full_arc_preview) {
+              tag("keep")
+              recolor("#ff663388")
+              zrot(180)
+              path_sweep(profile, arc(r=interlock_arc_r, angle=[
+                -134 + (180 - interlock_arc_ang/2),
+                -136 - (180 - interlock_arc_ang/2)
+              ]));
+            }
           }
         }
 
@@ -678,7 +692,6 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
 
     children();
   }
-
 }
 
 module preview_cut(v=BACK, s=10000) {
