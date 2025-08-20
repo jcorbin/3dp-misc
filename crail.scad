@@ -168,6 +168,8 @@ filter_baffle_thickness = 2;
 
 filter_slot_chamfer = 0.5;
 
+filter_slot_fillet = 0.5;
+
 filter_slot_draft = 1;
 
 /* [Box Fan] */
@@ -527,6 +529,8 @@ function rail_profile(
   y_slot = filter_slot,
   x_slot_chamfer = filter_slot_chamfer,
   y_slot_chamfer = filter_slot_chamfer,
+  x_slot_fillet = filter_slot_fillet,
+  y_slot_fillet = filter_slot_fillet,
   wall = rail_wall,
   outer_rounding = rail_outer_rounding,
   inner_rounding = rail_inner_rounding,
@@ -616,14 +620,14 @@ function rail_profile(
     0,
     0,
     x_slot_chamfer,
-    0,
-    0,
+    x_slot_fillet,
+    x_slot_fillet,
     x_slot_chamfer,
     0,
     0,
     y_slot_chamfer,
-    0,
-    0,
+    y_slot_fillet,
+    y_slot_fillet,
     y_slot_chamfer,
     0,
   ]),
@@ -631,6 +635,10 @@ function rail_profile(
   smooth_path = round_corners(cut_path, method="smooth", k=0.5, joint=[
     outer_rounding,
     inner_rounding,
+    chamfer,
+    chamfer,
+    chamfer,
+    chamfer,
     chamfer,
     chamfer,
     chamfer,
