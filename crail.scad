@@ -166,6 +166,10 @@ filter_baffle_pitch = 20;
 
 filter_baffle_thickness = 2;
 
+filter_slot_chamfer = 0.5;
+
+filter_slot_draft = 1;
+
 /* [Box Fan] */
 
 fan_frame_size = [
@@ -206,8 +210,6 @@ filter_slot = [
   + filter_cardboard_thickness
   // TODO + grip room
 ];
-
-filter_slot_chamfer = 1;
 
 rail_width = rail_wall + filter_slot.x + rail_wall + filter_slot.y;
 
@@ -534,9 +536,6 @@ function rail_profile(
 
   start = [-wid/2, -hei/2],
 
-  inner_plate = sqrt(y_slot.y^2 + x_slot.y^2),
-  inner_travel = wall, // TODO kill this, let rounding handle the blend to 45? leave it 90?
-
   pivot_at = [
     wid/2 - x_slot.y,
     hei/2 - y_slot.y,
@@ -557,7 +556,17 @@ function rail_profile(
 
   thru_loc = outer_rounding - thru_offset,
 
-  // TODO slot draft angle ; inteead of lip chamfer?
+  x_draft = [filter_slot_draft, x_slot.y],
+  y_draft = [filter_slot_draft, y_slot.y],
+  x_draft_ang = atan2(x_draft.y, x_draft.x),
+  y_draft_ang = atan2(y_draft.y, y_draft.x),
+  x_draft_coang = 90 - x_draft_ang,
+  y_draft_coang = 90 - y_draft_ang,
+  x_draft_travel = norm(x_draft),
+  y_draft_travel = norm(y_draft),
+
+  inner_plate = sqrt(y_slot.y^2 + x_slot.y^2),
+  inner_travel = wall, // TODO kill this, let rounding handle the blend to 45? leave it 90?
 
   solid_moves = [
     "move", wid,
@@ -573,30 +582,31 @@ function rail_profile(
     "move", wid,
 
     "turn",
-    "move", wall,
+    "move", wall - x_draft.x,
 
-    "turn",
-    "move", x_slot.y,
-    "turn", -90,
+    "turn", x_draft_ang,
+    "move", x_draft_travel,
+    "turn", -90 + x_draft_coang,
     "move", x_slot.x,
-    "turn", -90,
-    "move", x_slot.y,
-    "turn",
+    "turn", -90 + x_draft_coang,
+    "move", x_draft_travel,
+    "turn", x_draft_ang,
 
-    "move", inner_travel,
+    "move", inner_travel - x_draft.x,
     "turn", 45,
     "move", inner_plate,
     "turn", 45,
-    "move", inner_travel,
+    "move", inner_travel - y_draft.x,
 
-    "turn",
-    "move", y_slot.y,
-    "turn", -90,
+    "turn", y_draft_ang,
+    "move", y_draft_travel,
+    "turn", -90 + y_draft_coang,
     "move", y_slot.x,
-    "turn", -90,
-    "move", y_slot.y,
-    "turn",
-    "move", wall,
+    "turn", -90 + y_draft_coang,
+    "move", y_draft_travel,
+    "turn", y_draft_ang,
+
+    "move", wall - y_draft.x,
   ],
 
   basic_path = turtle(moves, state=[[start], [1, 0], 90, 0]),
@@ -1123,9 +1133,14 @@ else if (mode == 101) {
 
 else if (mode == 102) {
   prof = rail_profile();
-  color("red") down(.2) polygon(struct_val(prof, "basic_path"));
+
+  color("red")
+    // stroke(struct_val(prof, "basic_path"), width=feature);
+    down(.2) polygon(struct_val(prof, "basic_path"));
+
   color("blue") down(.1) polygon(struct_val(prof, "cut_path"));
   color("yellow") polygon(struct_val(prof, "smooth_path"));
+
 }
 
 else if (mode == 103) {
