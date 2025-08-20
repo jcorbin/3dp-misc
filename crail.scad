@@ -72,6 +72,9 @@ feature = 0.4;
 // Generic chamfer for things like bed interface and outside non-interface edges.
 chamfer = 0.5;
 
+// Generic rounding for anonymous edges.
+rounding = 1.5;
+
 // General wall thickness between voids
 wall = 1.2;
 
@@ -635,32 +638,32 @@ function rail_profile(
   smooth_path = round_corners(cut_path, method="smooth", k=0.5, joint=[
     outer_rounding,
     inner_rounding,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
-    chamfer,
+    x_slot_chamfer,
+    x_slot_chamfer,
+    x_slot_fillet,
+    x_slot_fillet,
+    x_slot_fillet,
+    x_slot_fillet,
+    x_slot_chamfer,
+    x_slot_chamfer,
+    rounding,
+    rounding,
+    y_slot_chamfer,
+    y_slot_chamfer,
+    y_slot_fillet,
+    y_slot_fillet,
+    y_slot_fillet,
+    y_slot_fillet,
+    y_slot_chamfer,
+    y_slot_chamfer,
     inner_rounding
   ]),
 
   solid_smooth_path = round_corners(solid_basic_path, method="smooth", k=0.5, joint=[
     outer_rounding,
     inner_rounding,
-    chamfer,
-    chamfer,
+    rounding,
+    rounding,
     inner_rounding
   ]),
 
