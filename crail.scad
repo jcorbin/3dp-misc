@@ -901,14 +901,14 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
         }
 
         if (interlock_up) {
-          tag("remove") {
-            up(interlock_d/2)
-            up(size.z/2)
+          tag("remove")
+          up(interlock_d/2)
+          up(size.z/2) {
+            if (with_x_slot)
             right($eps)
             attach("x_slot", BOTTOM)
               cuboid([1.5*interlock_d, 1.5*interlock_d, 5]);
-            up(interlock_d/2)
-            up(size.z/2)
+            if (with_y_slot)
             back($eps)
             attach("y_slot", BOTTOM)
               cuboid([1.5*interlock_d, 1.5*interlock_d, 5]);
