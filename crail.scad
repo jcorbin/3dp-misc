@@ -998,7 +998,7 @@ else if (mode == 12) {
 else if (mode == 13) {
 
   diff() rail(
-    2*(baseplate_thickness + baseplate_offset),
+    baseplate_offset + baseplate_thickness + baseplate_offset,
     solid=true,
     interlock_down=false,
     strength_fins=false,
@@ -1006,30 +1006,63 @@ else if (mode == 13) {
     prof = rail_profile();
     wid = struct_val(prof, "width");
     hei = struct_val(prof, "height");
+    wall = struct_val(prof, "wall");
+    inner_plate = struct_val(prof, "inner_plate");
     x_slot = struct_val(prof, "x_slot");
     y_slot = struct_val(prof, "y_slot");
     x_slot_at = struct_val(prof, "x_slot_at");
     y_slot_at = struct_val(prof, "y_slot_at");
 
+    cavity_size = [
+      wid - wall - y_slot.x/2 + $eps,
+      hei - wall - x_slot.x/2 + $eps,
+      baseplate_thickness
+    ];
+
+    // NOTE coupled to definition of inner_plate
+    inner_cut = [x_slot.y, y_slot.y];
+    edge = [cavity_size.x, cavity_size.y] - inner_cut;
+
+    cutaway = $preview ? 10 : 0;
+
     down(baseplate_offset)
-    position(TOP) {
+    position(TOP)
+    right(y_slot_at.x)
+    back(x_slot_at.y)
+    {
 
-      // TODO dial in cavity size, use it to locate support walls
-      right(y_slot_at.x)
-      back(x_slot_at.y)
       tag("remove")
-      cuboid([
-        struct_val(prof, "width") + baseplate_chamfer,
-        struct_val(prof, "height") + baseplate_chamfer,
-        baseplate_thickness], chamfer=baseplate_chamfer, edges="Z",
-        anchor=FRONT + LEFT + TOP) {
-      }
+      cuboid(cavity_size + [0, 0, cutaway],
+        chamfer=baseplate_chamfer, edges=[
+          [0, 0, 0, 0], // yz -- +- -+ ++
+          [0, 0, 0, 0], // xz
+          [1, 0, 0, 0], // xy
+        ],
+        anchor=FRONT + LEFT + TOP)
+        up(cutaway/2)
+        tag("keep") {
+          budge = 0.1;
+          spar = inner_plate;
 
-      // tag("keep")
-      // back(x_slot_at.y)
-      // right(struct_val(prof, "width")/2)
-      // left(support_width)
-      // #support_wall(baseplate_thickness, hei/2, anchor=FRONT + BOTTOM, orient=DOWN); // XXX
+          move([-1, -1, 0] * (sqrt(support_wall_width)/2 + budge))
+          move(-inner_cut/2)
+          position([1, 1, 0])
+          support_wall(baseplate_thickness, inner_plate, width=support_wall_width, spin=45);
+
+          move([-1, -1, 0] * support_wall_width/4)
+          move(-inner_cut/2)
+          position([1, 1, 0])
+          support_wall(baseplate_thickness, spar - support_wall_width, width=support_wall_width, anchor=BACK, spin=-45);
+
+          position([1, -1, 0])
+          left(support_wall_width/2 + budge)
+          support_wall(baseplate_thickness, edge.y, width=support_wall_width, anchor=FRONT);
+
+          position([-1, 1, 0])
+          fwd(support_wall_width/2 + budge)
+          support_wall(baseplate_thickness, edge.x, width=support_wall_width, anchor=FRONT, spin=-90);
+
+        }
 
     }
 
