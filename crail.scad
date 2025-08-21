@@ -175,6 +175,14 @@ filter_slot_fillet = 0.5;
 
 filter_slot_draft = 1;
 
+/* [Baseplate] */
+
+baseplate_offset = 2;
+
+baseplate_thickness = 5;
+
+baseplate_chamfer = 20;
+
 /* [Box Fan] */
 
 fan_frame_size = [
@@ -988,14 +996,6 @@ else if (mode == 12) {
 }
 
 else if (mode == 13) {
-
-  // TODO hoist parameter section
-
-  baseplate_offset = 2;
-
-  baseplate_thickness = 5;
-
-  baseplate_chamfer = 20;
 
   diff() rail(
     2*(baseplate_thickness + baseplate_offset),
