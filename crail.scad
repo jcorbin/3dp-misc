@@ -479,7 +479,7 @@ function rail_profile(
   x_draft_travel = norm(x_draft),
   y_draft_travel = norm(y_draft),
 
-  inner_plate = sqrt(y_slot.y^2 + x_slot.y^2),
+  inner_plate = norm([y_slot.y, x_slot.y]),
   inner_travel = wall, // TODO kill this, let rounding handle the blend to 45? leave it 90?
 
   solid_moves = [
