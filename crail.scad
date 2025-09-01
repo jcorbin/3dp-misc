@@ -736,6 +736,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
   prof = rail_body(h);
   size = struct_val(prof, "size");
   pivot_at = struct_val(prof, "pivot_at");
+  label_text = is_undef(label) ? str("H", h) : label;
 
   cutaway_slant = solid;
   with_x_slot = !solid;
@@ -896,8 +897,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
 
       }
 
-      if (label_size > 0 && label_depth > 0) {
-        label_text = is_undef(label) ? str("H", h) : label;
+      if (len(label_text) * label_size * label_depth > 0) {
 
         // TODO option for different placement when cutting away top for fan_mount
         tag("remove")
