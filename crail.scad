@@ -919,7 +919,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
   }
 }
 
-module fan_mount(depth) {
+module fan_divot(depth) {
   prof = rail_profile();
   pivot_at = struct_val(prof, "pivot_at");
 
@@ -937,6 +937,23 @@ module fan_mount(depth) {
     anchor=BOTTOM
     );
 }
+
+module fan_mount(h, depth, anchor = CENTER, spin = 0, orient = UP) {
+  prof = rail_body(h);
+  size = struct_val(prof, "size");
+  pivot_at = struct_val(prof, "pivot_at");
+  attachable(anchor, spin, orient, size=size, anchors=[
+    named_anchor("pivot",  pivot_at, UP),
+    named_anchor("pivot_up", [ pivot_at.x, pivot_at.y, size.z/2 ], UP),
+    named_anchor("pivot_down", [ pivot_at.x, pivot_at.y, -size.z/2 ], DOWN),
+  ]) {
+    tag_scope("fan_mount") diff()
+    rail(h, solid=true, interlock_up=false)
+      tag("remove") fan_divot(depth);
+    children();
+  }
+}
+
 
 module preview_cut(v=BACK, s=10000) {
   if ($preview && preview_cut)
@@ -1006,15 +1023,7 @@ else if (mode == 11) {
 }
 
 else if (mode == 12) {
-
-  // ydistribute(spacing=struct_val(rail_profile(), "width")) {
-
-  diff() rail(50, solid=true, interlock_up=false) {
-    tag("remove") fan_mount(25);
-  }
-
-  //   zrot(-90) rail(50, full_arc_preview=true);
-  // }
+  fan_mount(50, 25);
 }
 
 else if (mode == 13) {
