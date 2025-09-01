@@ -952,18 +952,18 @@ if (mode == 0) {
   fwd(rail_wall)
   filter_panel(orient=FRONT) {
     attach(LEFT, "x_slot", spin=180)
-    rail(500)
+    rail(filter_size.y)
       attach("y_slot", LEFT, spin=90)
       filter_panel()
         attach(RIGHT, "x_slot", spin=180)
-        rail(500);
+        rail(filter_size.y);
 
     attach(RIGHT, "y_slot", spin=90)
-    rail(500)
+    rail(filter_size.y)
       attach("x_slot", LEFT, spin=180)
       filter_panel()
         attach(RIGHT, "y_slot", spin=90)
-        rail(500)
+        rail(filter_size.y)
           attach("x_slot", LEFT, spin=180)
           filter_panel();
 
