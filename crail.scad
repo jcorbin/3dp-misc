@@ -30,23 +30,28 @@ include <BOSL2/walls.scad>;
 - cut entire curved arc away from interior bulkhead
 - added X and Y slot size labels
 
-## Next
+## Draft 4
 
 - added top chamfer to pivot pin
 - strengthened pivot pin with internal micro fins
 - strengthened interlock arc with an internal micro fin
 - increased rail rounding
+- added box fan mount to terminate rail top; specific to fan dimensions tho
+- added base plate holder to terminate rail bottom; designed to hold piece of foam core
+- attempted first full build, worked well except for fan mount
+
+## Next
 
 ## WIP
 
-- box fan mount; will interlock top side rail
-- base plate holder / foot; will interlock bottom side rail
+- dumber fan holder: just a top plate
+- press fit feet, desigend to print in TPU, insert into vertical rail hole
 
 ## TODO
 
 - handles, probably integrated into the fan holder, but could be a separate part
 - side rails?
-- better fan holder, maybe even dynamic to fan size range
+- maybe someday a dynamic fan holder that will grip edge of any fan size with a mechanism
 
 */
 
