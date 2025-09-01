@@ -228,6 +228,17 @@ rail_width = rail_wall + filter_slot.x + rail_wall + filter_slot.y;
 
 rail_fillet = sqrt(2 * ( filter_slot.y - rail_wall*1.5 )^2);
 
+// NOTE coupled to cavity position under module base()
+baseplate_inset = [
+  wall + filter_slot.x,
+  wall + filter_slot.x,
+];
+baseplate_size = [
+  filter_size.x + 2*baseplate_inset.x,
+  filter_size.y + 2*baseplate_inset.y,
+  baseplate_thickness,
+];
+
 module if_support() {
   if (!$preview || $support_preview) {
     children();
@@ -715,6 +726,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
   interlock_down = true,
   solid = false,
   strength_fins = true,
+  label = undef,
 ) {
   prof = rail_body(h);
   size = struct_val(prof, "size");
@@ -880,6 +892,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
       }
 
       if (label_size > 0 && label_depth > 0) {
+        label_text = is_undef(label) ? str("H", h) : label;
 
         // TODO option for different placement when cutting away top for fan_mount
         tag("remove")
@@ -887,7 +900,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
         down(label_depth/2)
         zrot(-45)
         fwd(label_size)
-          text3d(str("H", h), h=label_depth+$eps, size=label_size, atype="ycenter", anchor=CENTER);
+          text3d(label_text, h=label_depth+$eps, size=label_size, atype="ycenter", anchor=CENTER);
 
         if (with_x_slot) {
           tag("remove")
@@ -991,6 +1004,7 @@ module base(
       solid=true,
       interlock_down=false,
       strength_fins=false, // TODO if depth is large enough, we can turn these back on
+      label=str("W", floor(baseplate_size.x), " C", baseplate_chamfer),
     ) {
 
       down(depth)
@@ -1079,17 +1093,7 @@ else if (mode == 1) {
 
   h = 100;
 
-  // NOTE coupled to cavity position under module base()
-  inset = [
-    wall + filter_slot.x,
-    wall + filter_slot.x,
-  ];
-  plate_size = [
-    filter_size.x + 2*inset.x,
-    filter_size.y + 2*inset.y,
-    baseplate_thickness,
-  ];
-  echo(str("baseplate size: ", plate_size));
+  echo(str("baseplate size: ", baseplate_size));
 
   filter_panel(h=h, orient=FRONT) {
 
@@ -1104,7 +1108,7 @@ else if (mode == 1) {
     fwd(baseplate_offset)
     up(filter_size.z/2)
     position(FRONT+BOTTOM)
-      #cuboid(plate_size,
+      #cuboid(baseplate_size,
         chamfer=baseplate_chamfer, edges="Z",
         anchor=FRONT+TOP, orient=BACK
       );
