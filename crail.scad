@@ -319,38 +319,60 @@ function interlock_profile(
     ),
 ) round_corners(open ? ngon_max_bottom(points) : points, method="smooth", joint=chamfers);
 
-module filter_panel(anchor = CENTER, spin = 0, orient = UP) {
-  attachable(anchor, spin, orient, size=filter_size) {
-    render() diff() cuboid(filter_size) {
+module filter_panel(
+  h = filter_size.y,
+  anchor = CENTER, spin = 0, orient = UP,
+  lattice_hole = [95, 95],
+  lattice_chamfer = 16,
+  lattice_margin = 10,
+) {
+  size = [
+    filter_size.x,
+    h,
+    filter_size.z,
+  ];
+  attachable(anchor, spin, orient, size=size) {
+    render() diff() cuboid(size) {
 
-      interior_size = filter_size - [
+      interior_size = size - [
         2*filter_cardboard_thickness,
         2*filter_cardboard_thickness,
         2*filter_cardboard_thickness,
       ];
 
-      // front window cutout
-      tag("remove")
-        attach(TOP, BOTTOM, overlap=filter_cardboard_thickness+$eps)
-        cuboid([
-          filter_size.x - 2*filter_outside_frame,
-          filter_size.y - 2*filter_outside_frame,
-          filter_cardboard_thickness + 2*$eps
-        ]);
+      inner_window_region = [
+        size.x - 2*filter_inside_frame,
+        size.y - 2*filter_inside_frame,
+        2*filter_cardboard_thickness
+      ];
 
-      // rear lattice grid cutout
-      face_mask(BOTTOM) {
-        region = [
-          filter_size.x - 2*filter_inside_frame,
-          filter_size.y - 2*filter_inside_frame,
-        ];
-        inside = rect(region);
+      outer_window_region = [
+        size.x - 2*filter_outside_frame,
+        size.y - 2*filter_outside_frame,
+        2*filter_cardboard_thickness
+      ];
+
+      // front window cutout
+      face_mask(TOP) cuboid(outer_window_region);
+
+      // rear window or lattice grid cutout
+      face_mask(BOTTOM)
+      if (
+        lattice_hole.x*lattice_hole.y > 0 &&
+        inner_window_region.x * inner_window_region.y > 0 &&
+        inner_window_region.x > 2*lattice_hole.x &&
+        inner_window_region.y > 2*lattice_hole.y
+      ) {
+        lattice_spacing = max(lattice_hole) + lattice_margin;
+        inside = rect(inner_window_region);
         intersection() {
-          cuboid([region.x, region.y, 2]);
+          cuboid(inner_window_region);
           zrot(45)
-          grid_copies(inside=1.5*inside, spacing=105)
-            cuboid([95, 95, 2], chamfer=16, edges="Z");
+          grid_copies(inside=1.5*inside, spacing=lattice_spacing)
+            cuboid([lattice_hole.x, lattice_hole.y, inner_window_region.z], chamfer=lattice_chamfer, edges="Z");
         }
+      } else {
+        cuboid(inner_window_region);
       }
 
       // interior hollow
@@ -360,8 +382,8 @@ module filter_panel(anchor = CENTER, spin = 0, orient = UP) {
 
       // embafflement
       baffle_points = let(
-        length = filter_size.x - 2*filter_baffle_thickness,
-        depth = filter_size.z - 2*filter_baffle_thickness,
+        length = size.x - 2*filter_baffle_thickness,
+        depth = size.z - 2*filter_baffle_thickness,
         pitch = filter_baffle_pitch,
         hap = pitch/2,
         ang = 2*atan2(depth, hap),
@@ -387,7 +409,7 @@ module filter_panel(anchor = CENTER, spin = 0, orient = UP) {
         cuboid(interior_size);
         xrot(90)
         color("grey")
-        linear_extrude(height=filter_size.y - 2*filter_cardboard_thickness, center=true)
+        linear_extrude(height=size.y - 2*filter_cardboard_thickness, center=true)
           polygon(points = baffle_points);
       }
     }
