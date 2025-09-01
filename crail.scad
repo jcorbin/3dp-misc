@@ -202,9 +202,9 @@ fan_frame_thickness = 2; // nominal guess
 
 /* [Part Selection] */
 
-mode = 10; // [0:Assembly, 10:Test Rail, 11:Rail, 12:Fan Mount, 13:Foot, 100:Dev, 101:Filer Panel, 102:Rail Profile, 103:Interlock Profile]
+mode = 1; // [0:Assembly, 1:Base Sub-Assembly, 10:Test Rail, 11:Rail, 12:Fan Mount, 13:Base, 100:Dev, 101:Filter Panel, 102:Rail Profile, 103:Interlock Profile]
 
-// Section cutaway in previe mode.
+// Section cutaway in preview mode.
 preview_cut = false;
 
 // Show top interlock interference ghost.
@@ -954,6 +954,88 @@ module fan_mount(h, depth, anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+module base(
+  h = baseplate_offset + baseplate_thickness + baseplate_offset,
+  depth = baseplate_offset,
+  anchor = CENTER, spin = 0, orient = UP,
+  cutaway = preview_cut,
+) {
+  prof = rail_body(h);
+  size = struct_val(prof, "size");
+  wall = struct_val(prof, "wall");
+  inner_plate = struct_val(prof, "inner_plate");
+  x_slot = struct_val(prof, "x_slot");
+  y_slot = struct_val(prof, "y_slot");
+  x_slot_at = struct_val(prof, "x_slot_at");
+  y_slot_at = struct_val(prof, "y_slot_at");
+  pivot_at = struct_val(prof, "pivot_at");
+
+  cavity_size = [
+    size.x - wall - y_slot.x/2 + $eps,
+    size.y - wall - x_slot.x/2 + $eps,
+    baseplate_thickness
+  ];
+
+  cutback = cutaway ? size.z - cavity_size.z - depth : 0;
+
+  // NOTE coupled to definition of inner_plate
+  inner_cut = [x_slot.y, y_slot.y];
+  edge = [cavity_size.x, cavity_size.y] - inner_cut;
+
+  attachable(anchor, spin, orient, size=size, anchors=[
+    named_anchor("pivot",  pivot_at, UP),
+    named_anchor("pivot_up", [ pivot_at.x, pivot_at.y, size.z/2 ], UP),
+    named_anchor("pivot_down", [ pivot_at.x, pivot_at.y, -size.z/2 ], DOWN),
+  ]) {
+    tag_scope("base") diff() rail(h,
+      solid=true,
+      interlock_down=false,
+      strength_fins=false, // TODO if depth is large enough, we can turn these back on
+    ) {
+
+      down(depth)
+      position(TOP)
+      right(y_slot_at.x)
+      back(x_slot_at.y)
+      {
+        tag("remove")
+        cuboid(cavity_size + [0, 0, cutback ? cutback + $eps : 0],
+          chamfer=baseplate_chamfer, edges=[
+            [0, 0, 0, 0], // yz -- +- -+ ++
+            [0, 0, 0, 0], // xz
+            [1, 0, 0, 0], // xy
+          ],
+          anchor=FRONT + LEFT + TOP)
+          up(cutback/2)
+          tag("keep") {
+            budge = 0.1;
+            spar = inner_plate;
+
+            move([-1, -1, 0] * (sqrt(support_wall_width)/2 + budge))
+            move(-inner_cut/2)
+            position([1, 1, 0])
+            support_wall(baseplate_thickness, inner_plate, width=support_wall_width, spin=45);
+
+            move([-1, -1, 0] * support_wall_width/4)
+            move(-inner_cut/2)
+            position([1, 1, 0])
+            support_wall(baseplate_thickness, spar - support_wall_width, width=support_wall_width, anchor=BACK, spin=-45);
+
+            position([1, -1, 0])
+            left(support_wall_width/2 + budge)
+            support_wall(baseplate_thickness, edge.y, width=support_wall_width, anchor=FRONT);
+
+            position([-1, 1, 0])
+            fwd(support_wall_width/2 + budge)
+            support_wall(baseplate_thickness, edge.x, width=support_wall_width, anchor=FRONT, spin=-90);
+
+          }
+      }
+
+    }
+    children();
+  }
+}
 
 module preview_cut(v=BACK, s=10000) {
   if ($preview && preview_cut)
@@ -993,6 +1075,44 @@ if (mode == 0) {
 
 }
 
+else if (mode == 1) {
+
+  h = 100;
+
+  // NOTE coupled to cavity position under module base()
+  inset = [
+    wall + filter_slot.x,
+    wall + filter_slot.x,
+  ];
+  plate_size = [
+    filter_size.x + 2*inset.x,
+    filter_size.y + 2*inset.y,
+    baseplate_thickness,
+  ];
+  echo(str("baseplate size: ", plate_size));
+
+  filter_panel(h=h, orient=FRONT) {
+
+    attach(LEFT, "x_slot", spin=180)
+    rail(h, full_arc_preview = false)
+      attach("pivot_down", "pivot_up") base();
+
+    attach(RIGHT, "y_slot", spin=90)
+    rail(h, full_arc_preview = false)
+      attach("pivot_down", "pivot_up") base();
+
+    fwd(baseplate_offset)
+    up(filter_size.z/2)
+    position(FRONT+BOTTOM)
+      #cuboid(plate_size,
+        chamfer=baseplate_chamfer, edges="Z",
+        anchor=FRONT+TOP, orient=BACK
+      );
+
+  }
+
+}
+
 else if (mode == 10) {
   preview_cut(v=[-1, 1, 0])
     rail(20, full_arc_preview = full_arc_preview && !preview_cut);
@@ -1027,78 +1147,7 @@ else if (mode == 12) {
 }
 
 else if (mode == 13) {
-
-  diff() rail(
-    baseplate_offset + baseplate_thickness + baseplate_offset,
-    solid=true,
-    interlock_down=false,
-    strength_fins=false,
-  ) {
-    prof = rail_profile();
-    wid = struct_val(prof, "width");
-    hei = struct_val(prof, "height");
-    wall = struct_val(prof, "wall");
-    inner_plate = struct_val(prof, "inner_plate");
-    x_slot = struct_val(prof, "x_slot");
-    y_slot = struct_val(prof, "y_slot");
-    x_slot_at = struct_val(prof, "x_slot_at");
-    y_slot_at = struct_val(prof, "y_slot_at");
-
-    cavity_size = [
-      wid - wall - y_slot.x/2 + $eps,
-      hei - wall - x_slot.x/2 + $eps,
-      baseplate_thickness
-    ];
-
-    // NOTE coupled to definition of inner_plate
-    inner_cut = [x_slot.y, y_slot.y];
-    edge = [cavity_size.x, cavity_size.y] - inner_cut;
-
-    cutaway = $preview ? 10 : 0;
-
-    down(baseplate_offset)
-    position(TOP)
-    right(y_slot_at.x)
-    back(x_slot_at.y)
-    {
-
-      tag("remove")
-      cuboid(cavity_size + [0, 0, cutaway],
-        chamfer=baseplate_chamfer, edges=[
-          [0, 0, 0, 0], // yz -- +- -+ ++
-          [0, 0, 0, 0], // xz
-          [1, 0, 0, 0], // xy
-        ],
-        anchor=FRONT + LEFT + TOP)
-        up(cutaway/2)
-        tag("keep") {
-          budge = 0.1;
-          spar = inner_plate;
-
-          move([-1, -1, 0] * (sqrt(support_wall_width)/2 + budge))
-          move(-inner_cut/2)
-          position([1, 1, 0])
-          support_wall(baseplate_thickness, inner_plate, width=support_wall_width, spin=45);
-
-          move([-1, -1, 0] * support_wall_width/4)
-          move(-inner_cut/2)
-          position([1, 1, 0])
-          support_wall(baseplate_thickness, spar - support_wall_width, width=support_wall_width, anchor=BACK, spin=-45);
-
-          position([1, -1, 0])
-          left(support_wall_width/2 + budge)
-          support_wall(baseplate_thickness, edge.y, width=support_wall_width, anchor=FRONT);
-
-          position([-1, 1, 0])
-          fwd(support_wall_width/2 + budge)
-          support_wall(baseplate_thickness, edge.x, width=support_wall_width, anchor=FRONT, spin=-90);
-
-        }
-
-    }
-
-  }
-
+  base();
 }
 
 else if (mode == 101) {
