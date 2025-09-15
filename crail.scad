@@ -188,6 +188,12 @@ baseplate_thickness = 5;
 
 baseplate_chamfer = 20;
 
+/* [Top Corner] */
+
+top_corner_height = 10;
+
+top_corner_extra = 60;
+
 /* [Box Fan] */
 
 fan_frame_size = [
@@ -207,7 +213,7 @@ fan_frame_thickness = 2; // nominal guess
 
 /* [Part Selection] */
 
-mode = 1; // [0:Assembly, 1:Base Sub-Assembly, 10:Test Rail, 11:Rail, 12:Fan Mount, 13:Base, 100:Dev, 101:Filter Panel, 102:Rail Profile, 103:Interlock Profile]
+mode = 14; // [0:Assembly, 1:Base Sub-Assembly, 10:Test Rail, 11:Rail, 12:Fan Mount, 13:Base, 14:Top Corner, 100:Dev, 101:Filter Panel, 102:Rail Profile, 103:Interlock Profile]
 
 // Section cutaway in preview mode.
 preview_cut = false;
@@ -473,6 +479,7 @@ module box_fan(anchor = CENTER, spin = 0, orient = UP) {
 }
 
 function rail_profile(
+  extra = [0, 0], // TODO
   x_slot = filter_slot,
   y_slot = filter_slot,
   x_slot_chamfer = filter_slot_chamfer,
@@ -483,30 +490,30 @@ function rail_profile(
   outer_rounding = rail_outer_rounding,
   inner_rounding = rail_inner_rounding,
 ) = let (
-  wid = wall + y_slot.x + wall + x_slot.y,
-  hei = wall + x_slot.x + wall + y_slot.y,
+  wid = wall + y_slot.x + wall + x_slot.y + extra.x,
+  hei = wall + x_slot.x + wall + y_slot.y + extra.y,
 
-  start = [-wid/2, -hei/2],
+  mid = [wid/2, hei/2],
+  start = -mid,
 
-  pivot_at = [
-    wid/2 - x_slot.y,
-    hei/2 - y_slot.y,
-    0 ],
+  inner_bulk = extra + [x_slot.y, y_slot.y],
+  pivot_loc = mid - inner_bulk,
+
   x_slot_at = [
-    pivot_at.x,
-    wall - hei/2 + x_slot.x/2,
+    pivot_loc.x,
+    wall - mid.y + x_slot.x/2,
     0 ],
   y_slot_at = [
-    wall - wid/2 + y_slot.x/2,
-    pivot_at.y,
+    wall - mid.x + y_slot.x/2,
+    pivot_loc.y,
     0 ],
-  inner_at = [
-    wid/2 - x_slot.y/2,
-    hei/2 - y_slot.y/2,
-    0 ],
-  spine_at = rot(-45, cp=pivot_at, p=[x_slot_at.x, x_slot_at.y, 0] ),
 
+  inner_loc = pivot_loc + [ x_slot.y/2, y_slot.y/2 ],
+  spine_loc = rot(-45, cp=pivot_loc, p=[x_slot_at.x, x_slot_at.y] ),
   thru_loc = outer_rounding - thru_offset,
+
+  inner_at = [ inner_loc.x, inner_loc.y, 0 ],
+ 
 
   x_draft = [filter_slot_draft, x_slot.y],
   y_draft = [filter_slot_draft, y_slot.y],
@@ -517,8 +524,9 @@ function rail_profile(
   x_draft_travel = norm(x_draft),
   y_draft_travel = norm(y_draft),
 
-  inner_plate = norm([y_slot.y, x_slot.y]),
+  inner_plate = norm(inner_bulk),
   inner_travel = wall, // TODO kill this, let rounding handle the blend to 45? leave it 90?
+  // TODO calc taper height where
 
   solid_moves = [
     "move", wid,
@@ -612,7 +620,6 @@ function rail_profile(
     inner_rounding
   ]),
 
-
 ) [
   ["x_slot", x_slot],
   ["y_slot", y_slot],
@@ -622,16 +629,19 @@ function rail_profile(
   ["outer_rounding", outer_rounding],
   ["inner_rounding", inner_rounding],
 
+  ["extra", extra],
+  ["inner_bulk", inner_bulk],
   ["inner_plate", inner_plate],
   ["width", wid],
   ["height", hei],
 
-  ["pivot_at", pivot_at],
+  ["pivot_loc", pivot_loc],
+  ["spine_loc", spine_loc],
+  ["thru_loc", thru_loc],
+
   ["x_slot_at", x_slot_at],
   ["y_slot_at", y_slot_at],
   ["inner_at", inner_at],
-  ["spine_at", spine_at],
-  ["thru_loc", thru_loc],
 
   ["moves", moves],
   ["basic_path", basic_path],
@@ -642,8 +652,8 @@ function rail_profile(
   ["solid_smooth_path", solid_smooth_path],
 ];
 
-function rail_body(h) = let(
-  prof = rail_profile(),
+function rail_body(h, extra=[0, 0]) = let(
+  prof = rail_profile(extra=extra),
   size = [
     struct_val(prof, "width"),
     struct_val(prof, "height"),
@@ -653,40 +663,55 @@ function rail_body(h) = let(
   ["size", size],
 ]);
 
-module rail_body(h, anchor = CENTER, spin = 0, orient = UP,
+function up_anchor(nom, loc, h) = named_anchor(str(nom, "_up"), [ loc.x, loc.y, h/2 ], UP);
+function down_anchor(nom, loc, h) = named_anchor(str(nom, "_down"), [ loc.x, loc.y, -h/2 ], DOWN);
+
+function updown_anchors(h, proto) = flatten([for (p = proto) let (
+  nom = struct_val(p, "name"),
+  loc = struct_val(p, "loc"),
+) [
+  up_anchor(nom, loc, h),
+  down_anchor(nom, loc, h),
+]]);
+
+module rail_body(h,
+  anchor = CENTER, spin = 0, orient = UP,
   solid = false,
   chamfer1 = chamfer,
   chamfer2 = 0,
+  extra=[0, 0],
 ) {
-  prof = rail_body(h);
+  prof = rail_body(h, extra=extra);
   size = struct_val(prof, "size");
   wall = struct_val(prof, "wall");
   thru_loc = struct_val(prof, "thru_loc");
-  pivot_at = struct_val(prof, "pivot_at");
+  spine_loc = struct_val(prof, "spine_loc");
+  pivot_loc = struct_val(prof, "pivot_loc");
   inner_at = struct_val(prof, "inner_at");
-  spine_at = struct_val(prof, "spine_at");
 
-  attachable(anchor, spin, orient, size=size, anchors=[
+  thru_at = [
+    -size.x/2 + thru_loc/2,
+    -size.y/2 + thru_loc/2,
+    0
+  ];
+
+  attachable(anchor, spin, orient, size=size, anchors=concat([
     named_anchor("x_slot",  struct_val(prof, "x_slot_at"), RIGHT),
     named_anchor("y_slot",  struct_val(prof, "y_slot_at"), BACK),
+
     named_anchor("inner", inner_at, [1, 1, 0]),
-    named_anchor("inner_up", [ inner_at.x, inner_at.y, size.z/2 ], UP),
-    named_anchor("inner_down", [ inner_at.x, inner_at.y, -size.z/2 ], DOWN),
+    named_anchor("pivot", [ pivot_loc.x, pivot_loc.y, 0 ], UP),
+    named_anchor("spine", [ spine_loc.x, spine_loc.y, 0 ], DOWN),
 
-    named_anchor("pivot",  pivot_at, UP),
-    named_anchor("pivot_up", [ pivot_at.x, pivot_at.y, size.z/2 ], UP),
-    named_anchor("pivot_down", [ pivot_at.x, pivot_at.y, -size.z/2 ], DOWN),
-
-    named_anchor("spine",  spine_at, DOWN),
-    named_anchor("spine_up", [ spine_at.x, spine_at.y, size.z/2 ], UP),
-    named_anchor("spine_down", [ spine_at.x, spine_at.y, -size.z/2 ], DOWN),
-
-    named_anchor("thru_up", [ -size.x/2 + thru_loc/2, -size.y/2 + thru_loc/2, size.z/2 ], UP),
-    named_anchor("thru_down", [ -size.x/2 + thru_loc/2, -size.y/2 + thru_loc/2, -size.z/2 ], DOWN),
-    named_anchor("thru_z", [ -size.x/2 + thru_loc/2, -size.y/2 + thru_loc/2, 0 ], UP),
-    named_anchor("thru_x", [ -size.x/2 + thru_loc, -size.y/2, 0 ], [ 1, -1, 0 ]),
-    named_anchor("thru_y", [ -size.x/2, -size.y/2 + thru_loc, 0 ], [ -1, 1, 0 ]),
-  ]) {
+    named_anchor("thru_z", thru_at, UP),
+    named_anchor("thru_x", [ thru_at.x, -size.y/2, 0 ], [ 1, -1, 0 ]),
+    named_anchor("thru_y", [ -size.x/2, thru_at.y, 0 ], [ -1, 1, 0 ]),
+  ], updown_anchors(size.z, [
+    [["name", "inner"], ["loc", inner_at]],
+    [["name", "pivot"], ["loc", pivot_loc]],
+    [["name", "spine"], ["loc", spine_loc]],
+    [["name", "thru"], ["loc", thru_at]],
+  ]))) {
     offset_sweep(
       struct_val(prof, solid ? "solid_smooth_path" : "smooth_path"),
       h=h,
@@ -726,32 +751,50 @@ module pivot_hole(size=pivot_pin, anchor = CENTER, spin = 0, orient = UP) {
 }
 
 module rail(h, anchor = CENTER, spin = 0, orient = UP,
+  extra=[0, 0],
   full_arc_preview = false,
   interlock_up = true,
   interlock_down = true,
+  chamfer1 = chamfer,
+  chamfer2 = 0,
   solid = false,
   strength_fins = true,
+  with_cutaway = true,
   label = undef,
+  label_side = "up"
 ) {
-  prof = rail_body(h);
+  prof = rail_body(h, extra = extra);
   size = struct_val(prof, "size");
-  pivot_at = struct_val(prof, "pivot_at");
+  pivot_loc = struct_val(prof, "pivot_loc");
   label_text = is_undef(label) ? str("H", h) : label;
+  thru_loc = struct_val(prof, "thru_loc");
+  thru_at = [
+    -size.x/2 + thru_loc/2,
+    -size.y/2 + thru_loc/2,
+    0
+  ];
 
-  cutaway_slant = solid;
+  cutaway_slant = with_cutaway && solid;
   with_x_slot = !solid;
   with_y_slot = !solid;
 
-  attachable(anchor, spin, orient, size=size, anchors=[
-    named_anchor("pivot",  pivot_at, UP),
-    named_anchor("pivot_up", [ pivot_at.x, pivot_at.y, size.z/2 ], UP),
-    named_anchor("pivot_down", [ pivot_at.x, pivot_at.y, -size.z/2 ], DOWN),
-
-    named_anchor("x_slot",  struct_val(prof, "x_slot_at"), RIGHT),
-    named_anchor("y_slot",  struct_val(prof, "y_slot_at"), BACK),
-  ]) {
+  attachable(anchor, spin, orient, size=size, anchors=concat([
+    named_anchor("pivot", [pivot_loc.x, pivot_loc.y, 0], UP),
+    named_anchor("x_slot", struct_val(prof, "x_slot_at"), RIGHT),
+    named_anchor("y_slot", struct_val(prof, "y_slot_at"), BACK),
+  ], updown_anchors(size.z, [
+    [["name", "inner"], ["loc", struct_val(prof, "inner_at")]],
+    [["name", "pivot"], ["loc", pivot_loc]],
+    [["name", "spine"], ["loc", struct_val(prof, "spine_loc")]],
+    [["name", "thru"], ["loc", thru_at]],
+  ]))) {
     tag_scope("rail_body")
-    diff() rail_body(h, solid = solid) {
+    diff() rail_body(h,
+      solid = solid,
+      extra = extra,
+      chamfer1 = chamfer1,
+      chamfer2 = chamfer2,
+    ) {
 
       if (bore_d) {
         tag("remove")
@@ -785,17 +828,14 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
         }
       }
 
-      if (interlock_d > 0) {
-        xat = struct_val(prof, "x_slot_at");
-        yat = struct_val(prof, "y_slot_at");
-        interlock_arc_base = norm([xat.x - yat.x, xat.y - yat.y]);
-        interlock_arc = [
-          xat.x - pivot_at.x,
-          xat.y - pivot_at.y
-        ];
-        interlock_arc_r = norm(interlock_arc);
-        interlock_arc_ang = 2*asin((interlock_arc_base/2)/interlock_arc_r);
+      xat = struct_val(prof, "x_slot_at");
+      yat = struct_val(prof, "y_slot_at");
+      interlock_arc_base = norm([xat.x - yat.x, xat.y - yat.y]);
+      interlock_arc = xat - pivot_loc;
+      interlock_arc_r = norm(interlock_arc);
+      interlock_arc_ang = 2*asin((interlock_arc_base/2)/interlock_arc_r);
 
+      if (interlock_d > 0) {
         if (interlock_down) {
           tag("remove")
           position("pivot_down")
@@ -805,7 +845,7 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
             bounds = pointlist_bounds(profile),
             profile_h = bounds[1].y - bounds[0].y,
             cutaway = cutaway_shape(
-              norm([size.x, size.y])/2 - interlock_arc_r,
+              norm([size.x, size.y]) - interlock_arc_r,
               size.z,
               insert),
           )
@@ -833,16 +873,19 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
                     0 - cut_length
                   ]));
               } else {
-                down($eps)
-                path_sweep(profile, arc(r=interlock_arc_r, angle=[
-                  -134 + channel_length,
-                  -136 - channel_length
-                ]));
-                path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
-                  90 + cut_length,
-                  0 - cut_length
-                ]));
-              }
+                if (with_cutaway) {
+                  path_sweep(cutaway, arc(r=interlock_arc_r, angle=[
+                    90 + cut_length,
+                    0 - cut_length
+                  ]));
+                }
+                // TODO rework above to use rotate_sweep too
+                down($eps) {
+                  hold = 92;
+                  rotate_sweep(right(interlock_arc_r, profile));
+                  zrot(-(90 + (hold - 90)/2)) rotate_sweep(right(interlock_arc_r, insert), angle=360 - hold);
+                  }
+                }
 
             }
         }
@@ -898,14 +941,16 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
       }
 
       if (len(label_text) * label_size * label_depth > 0) {
-
-        // TODO option for different placement when cutting away top for fan_mount
         tag("remove")
-        position("inner_up")
-        down(label_depth/2)
+        translate(with_cutaway && interlock_d > 0
+          ? [0, 0, 0]
+          : [1, 1, 0] * (interlock_arc_r - label_size/2))
+        position(str("inner_", label_side))
+        translate(-orient * label_depth/2)
         zrot(-45)
         fwd(label_size)
-          text3d(label_text, h=label_depth+$eps, size=label_size, atype="ycenter", anchor=CENTER);
+        mirror(label_side == "down" ? [1, 0, 0] : [0, 0, 0])
+          #text3d(label_text, h=label_depth+$eps, size=label_size, atype="ycenter", anchor=CENTER);
 
         if (with_x_slot) {
           tag("remove")
@@ -939,14 +984,14 @@ module rail(h, anchor = CENTER, spin = 0, orient = UP,
 
 module fan_divot(depth) {
   prof = rail_profile();
-  pivot_at = struct_val(prof, "pivot_at");
+  pivot_loc = struct_val(prof, "pivot_loc");
 
   tag("remove")
   up(rail_wall)
   up(interlock_d)
   down(depth)
-  back(pivot_at.y)
-  right(pivot_at.x)
+  back(pivot_loc.y)
+  right(pivot_loc.x)
   right(filter_size.x/2)
   back(filter_size.y/2)
   cuboid(
@@ -959,17 +1004,32 @@ module fan_divot(depth) {
 module fan_mount(h, depth, anchor = CENTER, spin = 0, orient = UP) {
   prof = rail_body(h);
   size = struct_val(prof, "size");
-  pivot_at = struct_val(prof, "pivot_at");
-  attachable(anchor, spin, orient, size=size, anchors=[
-    named_anchor("pivot",  pivot_at, UP),
-    named_anchor("pivot_up", [ pivot_at.x, pivot_at.y, size.z/2 ], UP),
-    named_anchor("pivot_down", [ pivot_at.x, pivot_at.y, -size.z/2 ], DOWN),
-  ]) {
+  attachable(anchor, spin, orient, size=size, anchors=updown_anchors(size.z, [
+    [["name", "pivot"], ["loc", struct_val(prof, "pivot_loc")]],
+  ])) {
     tag_scope("fan_mount") diff()
-    rail(h, solid=true, interlock_up=false)
+    rail(h, solid=true, interlock_up=false, label="")
       tag("remove") fan_divot(depth);
     children();
   }
+}
+
+module top_corner(
+  h,
+  extra = 0,
+  anchor = CENTER, spin = 0, orient = UP,
+) {
+  rail(h,
+    solid=true,
+    extra=[extra, extra],
+    interlock_up=false,
+    with_cutaway=false,
+    chamfer1 = 0,
+    chamfer2 = chamfer,
+    label=str("H", h, " E", extra),
+    label_side="down",
+    anchor = anchor, spin = spin, orient = orient,
+  ) children();
 }
 
 module base(
@@ -986,7 +1046,6 @@ module base(
   y_slot = struct_val(prof, "y_slot");
   x_slot_at = struct_val(prof, "x_slot_at");
   y_slot_at = struct_val(prof, "y_slot_at");
-  pivot_at = struct_val(prof, "pivot_at");
 
   cavity_size = [
     size.x - wall - y_slot.x/2 + $eps,
@@ -1000,11 +1059,9 @@ module base(
   inner_cut = [x_slot.y, y_slot.y];
   edge = [cavity_size.x, cavity_size.y] - inner_cut;
 
-  attachable(anchor, spin, orient, size=size, anchors=[
-    named_anchor("pivot",  pivot_at, UP),
-    named_anchor("pivot_up", [ pivot_at.x, pivot_at.y, size.z/2 ], UP),
-    named_anchor("pivot_down", [ pivot_at.x, pivot_at.y, -size.z/2 ], DOWN),
-  ]) {
+  attachable(anchor, spin, orient, size=size, anchors=updown_anchors(size.z, [
+    [["name", "pivot"], ["loc", struct_val(prof, "pivot_loc")]],
+  ])) {
     tag_scope("base") diff() rail(h,
       solid=true,
       interlock_down=false,
@@ -1143,7 +1200,7 @@ else if (mode == 11) {
   // 762.0 = 200 + 200 + 179 + 183.0
 
   // TODO imprint inside for ID
-  rail(200, full_arc_preview = true);
+  rail(200, full_arc_preview = true) show_anchors(s = 10, std = true, custom = true);
 
   // TODO attach buddies to named anchor points
   // filter_panel(orient=FRONT, anchor=LEFT);
@@ -1159,19 +1216,30 @@ else if (mode == 13) {
   base();
 }
 
+else if (mode == 14) {
+  top_corner(top_corner_height,
+    extra=top_corner_extra,
+    orient=$preview ? UP : DOWN)
+    %attach("pivot_down", "pivot_up") rail(50);
+}
+
 else if (mode == 101) {
   filter_panel(orient=FRONT);
 }
 
 else if (mode == 102) {
-  prof = rail_profile();
+  prof = rail_profile(extra=[42, 42]);
+
+  // color("red")
+  //   // stroke(struct_val(prof, "basic_path"), width=feature);
+  //   down(.2) polygon(struct_val(prof, "basic_path"));
+  // color("blue") down(.1) polygon(struct_val(prof, "cut_path"));
+  // color("yellow") polygon(struct_val(prof, "smooth_path"));
 
   color("red")
-    // stroke(struct_val(prof, "basic_path"), width=feature);
-    down(.2) polygon(struct_val(prof, "basic_path"));
-
-  color("blue") down(.1) polygon(struct_val(prof, "cut_path"));
-  color("yellow") polygon(struct_val(prof, "smooth_path"));
+    // stroke(struct_val(prof, "solid_basic_path"), width=feature);
+    down(.2) polygon(struct_val(prof, "solid_basic_path"));
+  color("yellow") polygon(struct_val(prof, "solid_smooth_path"));
 
 }
 
@@ -1201,7 +1269,15 @@ else if (mode == 103) {
 
 else if (mode == 100) {
 
-  pivot_pin()
+  // rail_body(100)
+  // rail_body(50, solid=true)
+  // rail_body(20, solid=true, extra=[50, 50])
+  // rail(100)
+  // rail(50, solid=true)
+  // rail(20, solid=true, extra=[50, 50])
+  // fan_mount(50, 25)
+  top_corner(10, 42)
+  // base()
   {
   // position(TOP) #sphere(1);
   %show_anchors(std=false);
