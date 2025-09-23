@@ -93,7 +93,7 @@ module dev() {
     // ]) anchor_arrow();
     // zrot(-45)
     // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-    // %cube($parent_size, center=true);
+    %cube($parent_size, center=true);
   }
 
   // module XXX(anchor = CENTER, spin = 0, orient = UP) {
@@ -117,8 +117,6 @@ module dev() {
   // }
 
 }
-
-function minmax_diff(xs) = max(xs) - min(xs);
 
 module compute(anchor = CENTER, spin = 0, orient = UP) {
   // TODO generalize beyond rpi-zero
@@ -151,6 +149,18 @@ module compute(anchor = CENTER, spin = 0, orient = UP) {
       ["color", "#222222"],
       ["position", BACK + TOP],
       ["anchor", BACK + BOTTOM],
+      ["offset", [
+        0,
+        -0.9, // measured setback
+        0
+      ]],
+    ]],
+
+    ["header_thru", [
+      ["size", [50.6, 5, 2.0]], // measured
+      ["color", "#aaaaaa"],
+      ["position", BACK + BOTTOM],
+      ["anchor", BACK + TOP],
       ["offset", [
         0,
         -0.9, // measured setback
@@ -287,16 +297,14 @@ function pcba(
     // TODO clearance(s)
   ]),
 
-  bounds = let (
-    pts = [for (pt = flatten(part_bounds)) pt],
-  ) [
-    minmax_diff([for (pt = pts) pt.x]),
-    minmax_diff([for (pt = pts) pt.y]),
-    minmax_diff([for (pt = pts) pt.z]),
-  ],
-
-  pcb_xlate = v_mul((bounds - size)/2, [-1, 1, -1]),
-
+  part_points = [for (pt = flatten(part_bounds)) pt],
+  extent_x = minmax([for (pt = part_points) pt.x]),
+  extent_y = minmax([for (pt = part_points) pt.y]),
+  extent_z = minmax([for (pt = part_points) pt.z]),
+  extent_lo = [extent_x[0], extent_y[0], extent_z[0]],
+  extent_hi = [extent_x[1], extent_y[1], extent_z[1]],
+  bounds = extent_hi - extent_lo,
+  pcb_xlate = -(extent_hi + extent_lo)/2,
 ) [
   ["size", bounds],
 
@@ -310,7 +318,6 @@ function pcba(
 
   ["components", components],
   ["part_bounds", part_bounds],
-
 ];
 
 module pcba(
@@ -401,8 +408,9 @@ module pcba(
     }
     children();
   }
-
 }
+
+function minmax(xs) = [min(xs), max(xs)];
 
 module if_support() {
   if (!$preview || $support_preview) {
