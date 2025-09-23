@@ -82,7 +82,8 @@ module assembly() {
 }
 
 module dev() {
-  compute()
+  // compute()
+  batery_pack()
   {
     // %show_anchors(std=false);
     // attach([
@@ -93,7 +94,7 @@ module dev() {
     // ]) anchor_arrow();
     // zrot(-45)
     // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-    %cube($parent_size, center=true);
+    // %cube($parent_size, center=true);
   }
 
   // module XXX(anchor = CENTER, spin = 0, orient = UP) {
@@ -118,6 +119,128 @@ module dev() {
 
 }
 
+module batery_pack(anchor = CENTER, spin = 0, orient = UP) {
+
+  pcba(
+    size = [
+      100,
+      48.25,
+      1.5,
+    ],
+    rounding = 5,
+    mount_hole_d = 2.75,
+
+    // y spacing
+    //   30.4 ~ 35.9
+    //   35.9 - 30.4 = 5.5
+    //   5.5 / 2 = 2.75
+    //   35.9 - 2.75 = 33.15
+    //   30.4 + 2.75 = 33.15
+    // y offset measures like 7.4
+    //   48.25 - 7.4*2 = 33.45 which is only off 33.15 by .3
+    //   48.25 - 7.5*2 = 33.25 -- seems more likely then
+    // x spacing measures as 1.5 left and 1.2 right ... with usb-a left
+    mount_hole_offset = [
+      1.5 + 2.75/2,
+      7.5 + 2.75/2
+    ],
+
+  concat([
+
+    ["holder", [
+      ["size", [76.75, 42.5, 15.25]],
+      ["color", "#222222"],
+      ["position", TOP+RIGHT],
+      ["anchor", BOTTOM+RIGHT],
+      ["offset", [-5.75, 0, 0]],
+    ]],
+
+    ["usb-a", [
+      ["size", [10.2, 13.33, 6.5]],
+      ["color", "#aaaaaa"],
+      ["position", TOP+LEFT],
+      ["anchor", BOTTOM+LEFT],
+      ["offset", [-0.8, 0, 0]],
+    ]],
+
+    ["usb-c", [
+      ["size", [8.9, 7.4, 3.0]],
+      ["color", "#aaaaaa"],
+      ["position", BOTTOM+RIGHT+FRONT],
+      ["anchor", TOP+RIGHT+FRONT],
+      ["offset", [-7.5, 0, 0]],
+    ]],
+
+    ["usb-a-mini", [
+      ["size", [7.5, 5.5, 2.2]],
+      ["color", "#aaaaaa"],
+      ["position", BOTTOM+RIGHT+FRONT],
+      ["anchor", TOP+RIGHT+FRONT],
+      ["offset", [-20.6, 0, 0]],
+    ]],
+
+    ["button", [
+      ["size", [7.4, 6.45, 4.2]],
+      ["color", "#aaaaaa"],
+      ["position", TOP+LEFT+FRONT],
+      ["anchor", BOTTOM+LEFT+FRONT],
+      ["offset", [8.5, 0, 0]],
+    ]],
+
+    ["switch", [
+      ["size", [9, 3.45, 3.41]],
+      ["color", "#aaaaaa"],
+      ["position", TOP+LEFT+BACK],
+      ["anchor", BOTTOM+LEFT+BACK],
+      ["offset", [8.4, 0, 0]],
+    ]],
+
+    ["switch_thru", [
+      ["size", [9, 0.5, 2.24]],
+      ["color", "#aaaaaa"],
+      ["position", BOTTOM+LEFT+BACK],
+      ["anchor", TOP+LEFT+BACK],
+      ["offset", [8.4, -2.3, 0]],
+    ]],
+
+    ["bulkeh", [
+      ["size", [6.6, 6.6, 4.7]],
+      ["color", "#888888"],
+      ["position", BOTTOM],
+      ["anchor", TOP],
+      ["offset", [0, 0, 0]],
+    ]],
+
+    ["LEDs", [
+      ["size", [16.8, 3.2, 0.6]],
+      ["color", "#cc3333"],
+      ["position", BOTTOM+FRONT+LEFT],
+      ["anchor", TOP+FRONT+LEFT],
+      ["offset", [23, 7.5, 0]],
+    ]],
+  ],
+
+    [for (i = [0 : 1 : 3])
+      [str("5v_", i), [
+        ["size", [5.35, 3, 0.1]],
+        ["color", "#999933"],
+        ["position", BOTTOM+FRONT+LEFT],
+        ["anchor", TOP+FRONT+LEFT],
+        ["offset", [24.5 + 12.5 * i, 0, 0]],
+      ]] ],
+
+    [for (i = [0 : 1 : 3])
+      [str("3v_", i), [
+        ["size", [5.35, 3, 0.1]],
+        ["color", "#339999"],
+        ["position", BOTTOM+BACK+RIGHT],
+        ["anchor", TOP+BACK+RIGHT],
+        ["offset", [-30 - 12.5 * i, 0, 0]],
+      ]] ],
+
+  )) children();
+}
+
 module compute(anchor = CENTER, spin = 0, orient = UP) {
   // TODO generalize beyond rpi-zero
   // TODO hoist parameters
@@ -138,11 +261,16 @@ module compute(anchor = CENTER, spin = 0, orient = UP) {
 
   pcb_size = [
     65, 30, // spec
-    1.35    // measured
+    1.4     // measured
   ];
   pcb_rounding = 3; // measured
 
-  pcba(pcb_size, pcb_rounding, [
+  pcba(pcb_size, pcb_rounding,
+    mount_hole_d = 2.75, // measured
+    mount_hole_offset = 3.5, // spec
+    mount_hole_spacing = [ 29*2, 23 ], // spec
+
+  [
 
     ["header", [
       ["size", [50.6, 5, 8.5]], // measured
@@ -256,13 +384,7 @@ module compute(anchor = CENTER, spin = 0, orient = UP) {
       ]],
     ]],
 
-  ],
-
-    mount_hole_d = 3.5, // spec
-    mount_hole_offset = 2.75, // measured
-    mount_hole_spacing = [ 29*2, 23 ], // spec
-
-  ) children();
+  ]) children();
 }
 
 function pcba(
