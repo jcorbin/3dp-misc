@@ -72,18 +72,30 @@ module main() {
 }
 
 module assembly() {
+
+  ydistribute(spacing=10, sizes=[
+    struct_val(compute(), "size").y,
+    struct_val(battery_pack(), "size").y
+  ]) {
+    compute();
+    battery_pack(); // TODO batteries?
+  }
+
   // TODO case
-  // TODO power supply / batteries / etc
-  // TODO compute
   // TODO keyboard
   // TODO screen
   // TODO wires?
   // TODO ancillary port extenders?
+
 }
 
 module dev() {
+
+  assembly()
+
+  // battery_pack()
   // compute()
-  batery_pack()
+
   {
     // %show_anchors(std=false);
     // attach([
@@ -119,34 +131,27 @@ module dev() {
 
 }
 
-module batery_pack(anchor = CENTER, spin = 0, orient = UP) {
+function battery_pack() = pcba(
+  size = [100, 48.25, 1.5],
+  rounding = 5,
+  mount_hole_d = 2.75,
 
-  pcba(
-    size = [
-      100,
-      48.25,
-      1.5,
-    ],
-    rounding = 5,
-    mount_hole_d = 2.75,
+  // y spacing
+  //   30.4 ~ 35.9
+  //   35.9 - 30.4 = 5.5
+  //   5.5 / 2 = 2.75
+  //   35.9 - 2.75 = 33.15
+  //   30.4 + 2.75 = 33.15
+  // y offset measures like 7.4
+  //   48.25 - 7.4*2 = 33.45 which is only off 33.15 by .3
+  //   48.25 - 7.5*2 = 33.25 -- seems more likely then
+  // x spacing measures as 1.5 left and 1.2 right ... with usb-a left
+  mount_hole_offset = [
+    1.5 + 2.75/2,
+    7.5 + 2.75/2
+  ],
 
-    // y spacing
-    //   30.4 ~ 35.9
-    //   35.9 - 30.4 = 5.5
-    //   5.5 / 2 = 2.75
-    //   35.9 - 2.75 = 33.15
-    //   30.4 + 2.75 = 33.15
-    // y offset measures like 7.4
-    //   48.25 - 7.4*2 = 33.45 which is only off 33.15 by .3
-    //   48.25 - 7.5*2 = 33.25 -- seems more likely then
-    // x spacing measures as 1.5 left and 1.2 right ... with usb-a left
-    mount_hole_offset = [
-      1.5 + 2.75/2,
-      7.5 + 2.75/2
-    ],
-
-  concat([
-
+  components = concat([
     ["holder", [
       ["size", [76.75, 42.5, 15.25]],
       ["color", "#222222"],
@@ -220,6 +225,7 @@ module batery_pack(anchor = CENTER, spin = 0, orient = UP) {
     ]],
   ],
 
+    // 5v pads
     [for (i = [0 : 1 : 3])
       [str("5v_", i), [
         ["size", [5.35, 3, 0.1]],
@@ -229,6 +235,7 @@ module batery_pack(anchor = CENTER, spin = 0, orient = UP) {
         ["offset", [24.5 + 12.5 * i, 0, 0]],
       ]] ],
 
+    // 3v pads
     [for (i = [0 : 1 : 3])
       [str("3v_", i), [
         ["size", [5.35, 3, 0.1]],
@@ -238,50 +245,25 @@ module batery_pack(anchor = CENTER, spin = 0, orient = UP) {
         ["offset", [-30 - 12.5 * i, 0, 0]],
       ]] ],
 
-  )) children();
+  ));
+
+module battery_pack(anchor = CENTER, spin = 0, orient = UP) {
+  pcba(info = battery_pack()) children();
 }
 
-module compute(anchor = CENTER, spin = 0, orient = UP) {
-  // TODO generalize beyond rpi-zero
-  // TODO hoist parameters
-  // TODO get specs for or just measure elevations
-  // TODO mount screw spec
-
-  // height notes:
-  // - total alu case stack is 13.66
-  // - alu case bottom clearance is 1.4 ( +1.45 for pin header )
-  // - alu case top clearance is 4.5
-
-  // TODO
-  // pcb_clearance = [
-  //   1.80, // down: the 40-pin header solder joints ; measured
-  //   // 3.35, // up: the mini hdmi port ; measured
-  //   8.40, // up: the 40-pin header ; measured
-  // ];
-
-  pcb_size = [
-    65, 30, // spec
-    1.4     // measured
-  ];
-  pcb_rounding = 3; // measured
-
-  pcba(pcb_size, pcb_rounding,
-    mount_hole_d = 2.75, // measured
-    mount_hole_offset = 3.5, // spec
-    mount_hole_spacing = [ 29*2, 23 ], // spec
-
-  [
-
+function compute() = pcba(
+  size = [65, 30, 1.4], // spec, spec, measured
+  rounding = 3, // measured
+  mount_hole_d = 2.75, // measured
+  mount_hole_offset = 3.5, // spec
+  mount_hole_spacing = [29*2, 23], // spec
+  components = [
     ["header", [
       ["size", [50.6, 5, 8.5]], // measured
       ["color", "#222222"],
       ["position", BACK + TOP],
       ["anchor", BACK + BOTTOM],
-      ["offset", [
-        0,
-        -0.9, // measured setback
-        0
-      ]],
+      ["offset", [0, -0.9, 0]], // measured
     ]],
 
     ["header_thru", [
@@ -289,47 +271,31 @@ module compute(anchor = CENTER, spin = 0, orient = UP) {
       ["color", "#aaaaaa"],
       ["position", BACK + BOTTOM],
       ["anchor", BACK + TOP],
-      ["offset", [
-        0,
-        -0.9, // measured setback
-        0
-      ]],
+      ["offset", [0, -0.9, 0]], // measured
     ]],
 
     ["hdmi", [
       ["size", [11.75, 8.2, 3.4]], // measured
       ["color", "#aaaaaa"],
-      ["position", FRONT + TOP],
+      ["position", FRONT + TOP + LEFT],
       ["anchor", FRONT + BOTTOM],
-      ["offset", [
-        12.4 - pcb_size.x/2, // spec from left edge
-        -0.75, // measured extent
-        0
-      ]],
+      ["offset", [12.4, -0.75, 0]], // spec, measured
     ]],
 
     ["usb_1", [
       ["size", [8, 5.7, 3.4]], // measured
       ["color", "#aaaaaa"],
-      ["position", FRONT + TOP],
+      ["position", FRONT + TOP + LEFT],
       ["anchor", FRONT + BOTTOM],
-      ["offset", [
-        41.4 - pcb_size.x/2, // spec from left edge
-        -1.00, // measured extent
-        0
-      ]],
+      ["offset", [41.4, -1.00, 0]], // spec, measured
     ]],
 
     ["usb_2", [
       ["size", [8, 5.7, 3.4]], // measured
       ["color", "#aaaaaa"],
-      ["position", FRONT + TOP],
+      ["position", FRONT + TOP + LEFT],
       ["anchor", FRONT + BOTTOM],
-      ["offset", [
-        54 - pcb_size.x/2, // spec from left edge
-        -1.00, // measured extent
-        0
-      ]],
+      ["offset", [54, -1.00, 0]], // spec, measured
     ]],
 
     ["csi2", [ 
@@ -338,53 +304,38 @@ module compute(anchor = CENTER, spin = 0, orient = UP) {
       ["position", RIGHT + TOP],
       ["anchor", BOTTOM + FRONT],
       ["spin", 90],
-      ["offset", [
-        0.80, // measured extent
-        0,
-        0
-      ]],
+      ["offset", [0.80, 0, 0]], // measured
     ]],
 
     ["sdslot", [
       ["size", [12, 11.5, 1.5]], // measured
       ["color", "#aaaaaa"],
-      ["position", LEFT + TOP],
+      ["position", LEFT + TOP + BACK],
       ["anchor", BOTTOM + BACK],
       ["spin", 90],
-      ["offset", [
-          1.8, // measure inset
-          pcb_size.y/2 // from pcb back-edge
-          - 6 // component center / back edge ( aka size.x/2 )
-          - 7, // measured offset
-          0
-      ]],
+      ["offset", [1.8, -13, 0]], // measured
     ]],
 
     ["core", [
       ["size", [15, 15, 1]], // measured
       ["color", "#222222"],
-      ["position", TOP],
-      ["anchor", BOTTOM],
-      ["offset", [
-        15/2 - pcb_size.x/2 + 20, // measured
-        15/2 - pcb_size.y/2 + 6.4, // measured
-        0
-      ]],
+      ["position", TOP + LEFT + FRONT],
+      ["anchor", BOTTOM + LEFT + FRONT],
+      ["offset", [20, 6.4, 0]], // measured
     ]],
 
     ["wifi", [
       ["size", [12.1, 12.1, 1]], // measured
       ["color", "#aaaaaa"],
-      ["position", TOP],
-      ["anchor", BOTTOM],
-      ["offset", [
-        pcb_size.x/2 - 12.1/2 - 15.3, // measured
-        12.1/2 - pcb_size.y/2 + 7.7, // measured
-        0
-      ]],
+      ["position", TOP + RIGHT + FRONT],
+      ["anchor", BOTTOM + RIGHT + FRONT],
+      ["offset", [-15.3, 7.7, 0]], // measured
     ]],
 
-  ]) children();
+  ]);
+
+module compute(anchor = CENTER, spin = 0, orient = UP) {
+  pcba(info = compute()) children();
 }
 
 function pcba(
@@ -392,86 +343,91 @@ function pcba(
   mount_hole_d = 0,
   mount_hole_offset = 0,
   mount_hole_spacing = undef,
-) = let (
+) =
+  assert(is_vector(size, 3), str(size, "\npcba must define size."))
+  let (
 
-  hole_offset = scalar_vec2(mount_hole_offset),
-  hole_spacing = default(mount_hole_spacing, [size.x, size.y] - 2*hole_offset),
+    hole_offset = scalar_vec2(mount_hole_offset),
+    hole_spacing = default(mount_hole_spacing, [size.x, size.y] - 2*hole_offset),
 
-  part_bounds = concat([
-    for (comp = components)
-    let (
-      name = comp[0],
-      info = comp[1],
-      pos = struct_val(info, "position", TOP),
-      xlate = struct_val(info, "offset", [0, 0, 0]),
-    )
-    move(
-      v_mul(pos, size/2) + xlate,
-      cube(
+    part_bounds = concat([
+      for (comp = components)
+      let (
+        name = comp[0],
+        info = comp[1],
+        pos = struct_val(info, "position", TOP),
+        xlate = struct_val(info, "offset", [0, 0, 0]),
         size = struct_val(info, "size"),
-        anchor = struct_val(info, "anchor", BOTTOM),
-        orient = struct_val(info, "orient", UP),
-        spin = struct_val(info, "spin", 0),
-      )[0]
-    )
-  ], [
-    cube(size, center=true)[0],
-    // TODO clearance(s)
-  ]),
+      )
+      assert(is_vector(size, 3), str("\npcba component ", name, " must define size."))
+      move(
+        v_mul(pos, size/2) + xlate,
+        cube(
+          anchor = struct_val(info, "anchor", BOTTOM),
+          orient = struct_val(info, "orient", UP),
+          spin = struct_val(info, "spin", 0),
+        )[0]
+      )
+    ], [
+      cube(size, center=true)[0],
+      // TODO clearance(s)
+    ]),
 
-  part_points = [for (pt = flatten(part_bounds)) pt],
-  extent_x = minmax([for (pt = part_points) pt.x]),
-  extent_y = minmax([for (pt = part_points) pt.y]),
-  extent_z = minmax([for (pt = part_points) pt.z]),
-  extent_lo = [extent_x[0], extent_y[0], extent_z[0]],
-  extent_hi = [extent_x[1], extent_y[1], extent_z[1]],
-  bounds = extent_hi - extent_lo,
-  pcb_xlate = -(extent_hi + extent_lo)/2,
-) [
-  ["size", bounds],
+    part_points = [for (pt = flatten(part_bounds)) pt],
+    extent_x = minmax([for (pt = part_points) pt.x]),
+    extent_y = minmax([for (pt = part_points) pt.y]),
+    extent_z = minmax([for (pt = part_points) pt.z]),
+    extent_lo = [extent_x[0], extent_y[0], extent_z[0]],
+    extent_hi = [extent_x[1], extent_y[1], extent_z[1]],
+    bounds = extent_hi - extent_lo,
+    pcb_xlate = -(extent_hi + extent_lo)/2,
+  ) [
+    ["size", bounds],
 
-  ["pcb_size", size],
-  ["pcb_rounding", rounding],
-  ["pcb_xlate", pcb_xlate],
+    ["pcb_size", size],
+    ["pcb_rounding", rounding],
+    ["pcb_xlate", pcb_xlate],
 
-  ["mount_hole_d", mount_hole_d],
-  ["mount_hole_offset", hole_offset],
-  ["mount_hole_spacing", hole_spacing],
+    ["mount_hole_d", mount_hole_d],
+    ["mount_hole_offset", hole_offset],
+    ["mount_hole_spacing", hole_spacing],
 
-  ["components", components],
-  ["part_bounds", part_bounds],
-];
+    ["components", components],
+    ["part_bounds", part_bounds],
+  ];
 
 module pcba(
   size, rounding, components,
   mount_hole_d = 0,
   mount_hole_offset = 0,
   mount_hole_spacing = undef,
+  info = undef,
   pcb_color = "green",
   anchor = CENTER, spin = 0, orient = UP,
 ) {
-  info = pcba(
+  pinfo = is_undef(info) ? pcba(
     size, rounding, components,
     mount_hole_d = mount_hole_d,
     mount_hole_offset = mount_hole_offset,
     mount_hole_spacing = mount_hole_spacing,
-  );
-  size = struct_val(info, "size");
-  mount_hole_d = struct_val(info, "mount_hole_d");
-  pcb_size = struct_val(info, "pcb_size");
-  pcb_xlate = struct_val(info, "pcb_xlate");
+  ) : info;
+
+  size = struct_val(pinfo, "size");
+  mount_hole_d = struct_val(pinfo, "mount_hole_d");
+  pcb_size = struct_val(pinfo, "pcb_size");
+  pcb_xlate = struct_val(pinfo, "pcb_xlate");
 
   part_anchors = [
-    for (comp = components)
+    for (comp = struct_val(pinfo, "components"))
     let (
       name = comp[0],
-      info = comp[1],
-      pos = struct_val(info, "position", TOP),
-      xlate = struct_val(info, "offset", [0, 0, 0]),
-      size = struct_val(info, "size"),
-      anchor = struct_val(info, "anchor", BOTTOM),
-      orient = struct_val(info, "orient", UP),
-      spin = struct_val(info, "spin", 0),
+      cinfo = comp[1],
+      pos = struct_val(cinfo, "position", TOP),
+      xlate = struct_val(cinfo, "offset", [0, 0, 0]),
+      size = struct_val(cinfo, "size"),
+      anchor = struct_val(cinfo, "anchor", BOTTOM),
+      orient = struct_val(cinfo, "orient", UP),
+      spin = struct_val(cinfo, "spin", 0),
     )
     named_anchor(
       name,
@@ -483,7 +439,7 @@ module pcba(
 
     mount_anchors = mount_hole_d ? flatten([
       let(
-        pts = grid_copies(spacing=struct_val(info, "mount_hole_spacing"), p=pcb_xlate),
+        pts = grid_copies(spacing=struct_val(pinfo, "mount_hole_spacing"), p=pcb_xlate),
       )
       for (i = idx(pts))
       [
@@ -500,30 +456,30 @@ module pcba(
     diff()
     translate(pcb_xlate)
     color_this(pcb_color)
-    cuboid(pcb_size, rounding=struct_val(info, "pcb_rounding"), edges="Z")
+    cuboid(pcb_size, rounding=struct_val(pinfo, "pcb_rounding"), edges="Z")
     {
 
       if (mount_hole_d)
       tag("remove")
-      grid_copies(spacing=struct_val(info, "mount_hole_spacing"))
+      grid_copies(spacing=struct_val(pinfo, "mount_hole_spacing"))
         cyl(d=mount_hole_d, h=pcb_size.z + 2*$eps);
 
       tag("keep")
-      for (comp = components) {
+      for (comp = struct_val(pinfo, "components")) {
         name = comp[0];
-        info = comp[1];
-        pos = struct_val(info, "position", TOP);
-        xlate = struct_val(info, "offset", [0, 0, 0]);
+        cinfo = comp[1];
+        pos = struct_val(cinfo, "position", TOP);
+        xlate = struct_val(cinfo, "offset", [0, 0, 0]);
 
         position(pos)
         translate(xlate)
         // TODO dispatch "shape" if defined
-        color_this(struct_val(info, "color", "default"))
+        color_this(struct_val(cinfo, "color", "default"))
         cuboid(
-          struct_val(info, "size"),
-          anchor=struct_val(info, "anchor", BOTTOM),
-          orient=struct_val(info, "orient", UP),
-          spin=struct_val(info, "spin", 0),
+          struct_val(cinfo, "size"),
+          anchor=struct_val(cinfo, "anchor", BOTTOM),
+          orient=struct_val(cinfo, "orient", UP),
+          spin=struct_val(cinfo, "spin", 0),
         );
 
       }
