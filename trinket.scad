@@ -73,13 +73,15 @@ module main() {
 
 module assembly() {
 
-  ydistribute(spacing=10, sizes=[
-    struct_val(compute(), "size").y,
-    struct_val(battery_pack(), "size").y
-  ]) {
-    compute();
-    battery_pack(); // TODO batteries?
-  }
+  boards = [
+    compute(),
+    battery_pack(),
+  ];                 
+
+  ycopies(spacing=cumsum([
+    for (board = boards)
+    struct_val(board, "bounds").y
+  ])) pcba(boards[$idx]);
 
   // TODO case
   // TODO keyboard
@@ -91,11 +93,11 @@ module assembly() {
 
 module dev() {
 
-  assembly()
-
+  pcb_plate(keyboard()) // TODO fix centering
+  // assembly()
+  // keyboard()
   // battery_pack()
   // compute()
-
   {
     // %show_anchors(std=false);
     // attach([
@@ -106,8 +108,18 @@ module dev() {
     // ]) anchor_arrow();
     // zrot(-45)
     // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-    // %cube($parent_size, center=true);
+    %cube($parent_size, center=true);
   }
+
+  // shape = keyboard_plate();
+  // if ($preview) {
+  //   stroke(shape, width=feature);
+  // } else {
+  //   linear_sweep(shape, 0.4);
+  // }
+  // // color("red") 
+  //   // polygon(shape);
+  //   // debug_region(shape);
 
   // module XXX(anchor = CENTER, spin = 0, orient = UP) {
   //   size = [XXX.x, XXX.z, XXX.y];
@@ -129,6 +141,83 @@ module dev() {
   //   }
   // }
 
+}
+
+function keyboard_plate() = 
+  let (
+    width = 105,
+    height = 53,
+    r1 = 10,
+    r2 = 6,
+    wing = [1.6, 23],
+    wing_at = 6.7,
+    rem_h = height-wing_at-wing.y-r1-r2,
+  )
+  slice(turtle([
+    "xjump", r2, // NOTE this is why the slice
+
+    "move", width-r2-r2-r2,
+
+    "arcleft", r2, 90,
+
+    "move", wing_at,
+    "right", 90,
+    "move", wing.x,
+    "left", 90,
+    "move", wing.y,
+    "left", 90,
+    "move", wing.x,
+    "right", 90,
+    "move", rem_h,
+
+    "arcleft", r1, 90,
+
+    "move", width-r1-r1,
+
+    "arcleft", r1, 90,
+
+    "move", rem_h,
+    "right", 90,
+    "move", wing.x,
+    "left", 90,
+    "move", wing.y,
+    "left", 90,
+    "move", wing.x,
+    "right", 90,
+    "move", wing_at,
+
+    "arcleft", r2, 90,
+  ]), 1);
+
+function keyboard() = pcba(
+  shape = keyboard_plate(),
+  height = 0.8,
+  components = [
+    // TODO mount holes
+    // TODO index holes
+    // TODO keypads
+    // TODO leds
+    // TODO pairing button
+    // TODO usb c socket
+    // TODO battery pack leads
+
+    // NOTE measurements
+    // keypads D:5.5 spacing: [ 11, 9 ]
+    //'keyframe 1u: [ 9.6, 8.4 ] spacing: [ 1.1, 1.3 ]
+    // membrane corner rounding looks like 6
+    // membrane contacter is like D:4.2
+    // membrane depth is like 2.7
+    // pair button is like D:4.2
+    // leds are like [ 2.3, 1.5 ] spacing: 6
+    // case post is like D:3.5 H:3 spacing1:93 spacing2:85.5
+    // case indexing pins are like D:2.2 H:2.9 spacing: [ 21.5, 20 ]
+    // plate index holes are like D:2.5 spacing like [ 22.5, 22.1 ]
+
+  ],
+);
+
+module keyboard(anchor = CENTER, spin = 0, orient = UP) {
+  pcba(keyboard()) children();
 }
 
 function battery_pack() = pcba(
@@ -248,7 +337,7 @@ function battery_pack() = pcba(
   ));
 
 module battery_pack(anchor = CENTER, spin = 0, orient = UP) {
-  pcba(info = battery_pack()) children();
+  pcba(battery_pack()) children();
 }
 
 function compute() = pcba(
@@ -335,20 +424,43 @@ function compute() = pcba(
   ]);
 
 module compute(anchor = CENTER, spin = 0, orient = UP) {
-  pcba(info = compute()) children();
+  pcba(compute()) children();
 }
 
 function pcba(
-  size, rounding, components,
+  size, rounding, // simple rectangle, maybe rounded
+  // -- or -- 
+  shape, height, // extruded path or region
+
+  components,
+
   mount_hole_d = 0,
   mount_hole_offset = 0,
   mount_hole_spacing = undef,
 ) =
-  assert(is_vector(size, 3), str(size, "\npcba must define size."))
+
+  assert(
+    is_def(size) ||
+    is_def(height) && is_def(shape),
+    "\nMust define either size (cube) or shape + height")
+  assert(
+    is_undef(size) || is_vector(size, 3),
+    "\n'size' must be a 3-vector.")
+  assert(
+    is_undef(shape) || is_path(shape) || is_region(path),
+    "\n'shape' must be a path or region.")
   let (
+    pcb_shape = is_undef(shape) ? rect([size.x, size.y], rounding) : shape,
+    pcb_pts = is_region(pcb_shape) ? flatten(pcb_shape) : pcb_shape,
+    pcb_bounds = pointlist_bounds(pcb_pts),
+    pcb_size = is_undef(size) ? [
+      pcb_bounds[1].x - pcb_bounds[0].x,
+      pcb_bounds[1].y - pcb_bounds[0].y,
+      height
+    ] : size,
 
     hole_offset = scalar_vec2(mount_hole_offset),
-    hole_spacing = default(mount_hole_spacing, [size.x, size.y] - 2*hole_offset),
+    hole_spacing = default(mount_hole_spacing, [pcb_size.x, pcb_size.y] - 2*hole_offset),
 
     part_bounds = concat([
       for (comp = components)
@@ -369,23 +481,21 @@ function pcba(
         )[0]
       )
     ], [
-      cube(size, center=true)[0],
-      // TODO clearance(s)
+      linear_sweep(pcb_shape, size.z, center=true)[0],
     ]),
 
-    part_points = [for (pt = flatten(part_bounds)) pt],
-    extent_x = minmax([for (pt = part_points) pt.x]),
-    extent_y = minmax([for (pt = part_points) pt.y]),
-    extent_z = minmax([for (pt = part_points) pt.z]),
-    extent_lo = [extent_x[0], extent_y[0], extent_z[0]],
-    extent_hi = [extent_x[1], extent_y[1], extent_z[1]],
+    all_bounds = pointlist_bounds(flatten(part_bounds)),
+    extent_lo = all_bounds[0],
+    extent_hi = all_bounds[1],
+
     bounds = extent_hi - extent_lo,
     pcb_xlate = -(extent_hi + extent_lo)/2,
   ) [
-    ["size", bounds],
+    ["bounds", bounds],
 
-    ["pcb_size", size],
-    ["pcb_rounding", rounding],
+    ["size", pcb_size],
+    ["shape", pcb_shape],
+
     ["pcb_xlate", pcb_xlate],
 
     ["mount_hole_d", mount_hole_d],
@@ -396,29 +506,28 @@ function pcba(
     ["part_bounds", part_bounds],
   ];
 
-module pcba(
-  size, rounding, components,
-  mount_hole_d = 0,
-  mount_hole_offset = 0,
-  mount_hole_spacing = undef,
-  info = undef,
-  pcb_color = "green",
-  anchor = CENTER, spin = 0, orient = UP,
-) {
-  pinfo = is_undef(info) ? pcba(
-    size, rounding, components,
-    mount_hole_d = mount_hole_d,
-    mount_hole_offset = mount_hole_offset,
-    mount_hole_spacing = mount_hole_spacing,
-  ) : info;
+// TODO function pcb_profile(info) -> path
 
-  size = struct_val(pinfo, "size");
-  mount_hole_d = struct_val(pinfo, "mount_hole_d");
-  pcb_size = struct_val(pinfo, "pcb_size");
-  pcb_xlate = struct_val(pinfo, "pcb_xlate");
+module pcb_plate(info, anchor = CENTER, spin = 0, orient = UP) {
+  size = struct_val(info, "size");
+  shape = struct_val(info, "shape");
+  attachable(anchor, spin, orient, size=size) {
+    color_this(struct_val("info", "color", "green"))
+    // TODO recenter 2d shape wen
+    linear_sweep(shape, size.z, center=true);
+
+    children();
+  }
+}
+
+module pcba(info, anchor = CENTER, spin = 0, orient = UP) {
+  bounds = struct_val(info, "bounds");
+  mount_hole_d = struct_val(info, "mount_hole_d");
+  pcb_size = struct_val(info, "size");
+  pcb_xlate = struct_val(info, "pcb_xlate");
 
   part_anchors = [
-    for (comp = struct_val(pinfo, "components"))
+    for (comp = struct_val(info, "components"))
     let (
       name = comp[0],
       cinfo = comp[1],
@@ -428,52 +537,41 @@ module pcba(
       anchor = struct_val(cinfo, "anchor", BOTTOM),
       orient = struct_val(cinfo, "orient", UP),
       spin = struct_val(cinfo, "spin", 0),
+      loc = v_mul(pos, pcb_size/2) + xlate + pcb_xlate + UP*size.z/2,
+    ) named_anchor(name, loc, orient)];
+
+  // TODO if we naturalize mount holes into negative parts below, then
+  // anchors here should also generalize for any hole/negative part?
+  mount_anchors = mount_hole_d ? flatten([
+    let(
+      pts = grid_copies(spacing=struct_val(info, "mount_hole_spacing"), p=pcb_xlate),
     )
-    named_anchor(
-      name,
-      v_mul(pos, pcb_size/2)
-      + xlate
-      + pcb_xlate
-      + UP*size.z/2,
-      orient)];
+    for (i = idx(pts))
+    [
+      named_anchor(str("mount_hole_", i), pts[i], UP),
+      named_anchor(str("mount_up_",   i), pts[i] + UP*pcb_size.z/2, UP),
+      named_anchor(str("mount_down_", i), pts[i] + DOWN*pcb_size.z/2, DOWN),
+    ]
+  ]) : [];
 
-    mount_anchors = mount_hole_d ? flatten([
-      let(
-        pts = grid_copies(spacing=struct_val(pinfo, "mount_hole_spacing"), p=pcb_xlate),
-      )
-      for (i = idx(pts))
-      [
-        named_anchor(str("mount_hole_", i), pts[i], UP),
-        named_anchor(str("mount_up_", i), pts[i] + UP*pcb_size.z/2, UP),
-        named_anchor(str("mount_down_", i), pts[i] + DOWN*pcb_size.z/2, DOWN),
-      ]
-    ]) : [];
+  attachable(anchor, spin, orient, size=bounds,
+    anchors=concat(part_anchors, mount_anchors),
+  ) {
+    diff() translate(pcb_xlate) pcb_plate(info) {
 
-  attachable(anchor, spin, orient, size=size, anchors=concat(
-    part_anchors,
-    mount_anchors,
-  )) {
-    diff()
-    translate(pcb_xlate)
-    color_this(pcb_color)
-    cuboid(pcb_size, rounding=struct_val(pinfo, "pcb_rounding"), edges="Z")
-    {
-
+      // TODO can we naturalize mount holes into ["tag", "remove"] parts with d & h?
       if (mount_hole_d)
       tag("remove")
-      grid_copies(spacing=struct_val(pinfo, "mount_hole_spacing"))
+      grid_copies(spacing=struct_val(info, "mount_hole_spacing"))
         cyl(d=mount_hole_d, h=pcb_size.z + 2*$eps);
 
-      tag("keep")
-      for (comp = struct_val(pinfo, "components")) {
-        name = comp[0];
+      for (comp = struct_val(info, "components")) {
         cinfo = comp[1];
-        pos = struct_val(cinfo, "position", TOP);
-        xlate = struct_val(cinfo, "offset", [0, 0, 0]);
+        tag(struct_val(cinfo, "tag", "keep"))
+        position(struct_val(cinfo, "position", TOP))
+        translate(struct_val(cinfo, "offset", [0, 0, 0]))
 
-        position(pos)
-        translate(xlate)
-        // TODO dispatch "shape" if defined
+        // TODO module pcb_part ... if "d" & "h" ... if "shape" ... if "part"
         color_this(struct_val(cinfo, "color", "default"))
         cuboid(
           struct_val(cinfo, "size"),
