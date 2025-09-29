@@ -73,20 +73,34 @@ module main() {
 
 module assembly() {
 
-  boards = [
-    compute(),
-    battery_pack(),
-    keyboard(),
-  ];                 
+  up(25)
+  back(25)
+  xrot(30)
+  screen(orient=DOWN)
+    attach("header", "header_pins", overlap=5.2)
+    compute();
 
-  ycopies(spacing=cumsum([
-    for (board = boards)
-    struct_val(board, "bounds").y
-  ])) pcba(boards[$idx]);
+  down(5)
+  fwd(20)
+  zrot(180)
+  battery_pack(orient=DOWN);
+
+  fwd(55)
+  xrot(30)
+  keyboard();
+
+  // boards = [
+  //   compute(),
+  //   battery_pack(),
+  //   keyboard(),
+  //   screen(),
+  // ];                 
+  // ycopies(spacing=cumsum([
+  //   for (board = boards)
+  //   struct_val(board, "bounds").y
+  // ])) pcba(boards[$idx]);
 
   // TODO case
-  // TODO keyboard
-  // TODO screen
   // TODO wires?
   // TODO ancillary port extenders?
 
@@ -95,9 +109,6 @@ module assembly() {
 module dev() {
 
   assembly()
-  // keyboard()
-  // battery_pack()
-  // compute()
   {
     // %show_anchors(std=false);
     // attach([
@@ -150,6 +161,81 @@ function postsum(v) =
   assert(is_consistent(v), "\nThe input is not consistent." )
   [for (a = 0, i = 0; i < len(v); a = a+v[i], i = i+1) a];
 
+function screen() = pcba(
+  size=[97.85, 58.14, 1.6],
+  components=[
+    ["cutout", [
+      ["tag", "remove"],
+      ["region", rect([7.5+$eps, 47.14], rounding=[0, 1.5, 1.5, 0])],
+      ["position", RIGHT],
+      ["anchor", RIGHT],
+      ["offset", [$eps, 0, 0]],
+    ]],
+
+    ["screen", [
+      ["size", [97.2, 58.44, 3.7]],
+      ["color", "#111111"],
+      ["position", BOTTOM+LEFT],
+      ["anchor", TOP+LEFT],
+    ]],
+
+    ["header", [
+      ["size", [51, 5, 4.8]],
+      ["color", "#222222"],
+      ["position", TOP+RIGHT+FRONT],
+      ["anchor", BOTTOM],
+      ["offset", [-44.35, 53.57, 0]],
+      ["attach", TOP],
+    ]],
+
+    ["mount_0", [
+      ["d", 5.5],
+      ["h", 2.2],
+      ["color", "#dddddd"],
+      ["position", TOP+RIGHT+BACK],
+      ["offset", [-15.35, -4.57, 0]],
+      ["attach", TOP],
+    ]],
+    ["mount_1", [
+      ["d", 5.5],
+      ["h", 2.2],
+      ["color", "#dddddd"],
+      ["position", TOP+RIGHT+BACK],
+      ["offset", [-74.35, -4.57, 0]],
+      ["attach", TOP],
+    ]],
+    ["mount_2", [
+      ["d", 5.5],
+      ["h", 2.2],
+      ["color", "#dddddd"],
+      ["position", TOP+RIGHT+BACK],
+      ["offset", [-74.35, -53.07, 0]],
+      ["attach", TOP],
+    ]],
+    ["mount_3", [
+      ["d", 5.5],
+      ["h", 2.2],
+      ["color", "#dddddd"],
+      ["position", TOP+RIGHT+BACK],
+      ["offset", [-15.35, -53.07, 0]],
+      ["attach", TOP],
+    ]],
+
+    ["qwst", [
+      ["size", [6.15, 4.5, 3.1]],
+      ["color", "#ddddbb"],
+      ["position", TOP+RIGHT+FRONT],
+      ["anchor", BOTTOM+FRONT],
+      ["offset", [-47.60, 0, 0]],
+      ["attach", FRONT],
+    ]],
+  ],
+);
+
+module screen(anchor = CENTER, spin = 0, orient = UP) {
+  pcba(screen(), anchor=anchor, spin=spin, orient=orient) children();
+}
+
 keyboard_layout = [
   [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0" ],
   [ "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P" ],
@@ -173,7 +259,6 @@ keyboard_layout = [
 // membrane depth is like 2.7
 
 function keyboard() = let (
-
   width = 105,
   height = 53,
   // thick = 0.4, // 0.8,
@@ -218,7 +303,6 @@ function keyboard() = let (
 
     "arcleft", r2, 90,
   ]),
-
 ) pcba(
   shape = plate_shape,
   height = thick,
@@ -268,18 +352,21 @@ function keyboard() = let (
       ["position", CENTER],
       ["d", 2.5],
       ["offset", [-10.5, -5, 0]],
+      ["attach", DOWN],
     ]],
     ["mid_hole_1", [
       ["tag", "remove"],
       ["position", CENTER],
       ["d", 2.5],
       ["offset", [11, -5, 0]],
+      ["attach", DOWN],
     ]],
     ["mid_hole_2", [
       ["tag", "remove"],
       ["position", CENTER],
       ["d", 2.5],
       ["offset", [-10.5, 15, 0]],
+      ["attach", DOWN],
     ]],
 
     // keypads
@@ -325,6 +412,7 @@ function keyboard() = let (
         ["color", "#999999"],
         ["position", TOP+BACK+LEFT],
         ["offset", v_mul([1, -1], grid_offset + key_offset)],
+        // ["attach", UP],
       ]],
     ],
 
@@ -333,20 +421,23 @@ function keyboard() = let (
       ["color", "#6699ee"],
       ["position", BACK+TOP],
       ["offset", [22, -2, 0]],
+      ["attach", UP],
     ]],
     ["led_2", [
       ["size", [2.3, 1.5, 0.6]],
       ["color", "#6699ee"],
       ["position", BACK+TOP],
       ["offset", [28, -2, 0]],
+      ["attach", UP],
     ]],
 
-    ["button_pair", [
+    ["pair", [
       ["d", 4.2],
       ["h", 0.5],
       ["color", "#dddddd"],
       ["position", BACK+TOP],
       ["offset", [35.75, -2.25, 0]],
+      ["attach", UP],
     ]],
 
     ["batt_vcc", [
@@ -356,6 +447,7 @@ function keyboard() = let (
       ["position", BOTTOM+LEFT],
       ["anchor", TOP+LEFT],
       ["offset", [1, 6, 0]],
+      ["attach", DOWN],
     ]],
     ["batt_gnd", [
       ["d", 1.5],
@@ -364,6 +456,7 @@ function keyboard() = let (
       ["position", BOTTOM+LEFT],
       ["anchor", TOP+LEFT],
       ["offset", [1, 3, 0]],
+      ["attach", DOWN],
     ]],
 
     ["cutaway_switch", [
@@ -387,6 +480,7 @@ function keyboard() = let (
       ["position", BOTTOM+BACK],
       ["anchor", TOP+BACK],
       ["offset", [-9, -0.8, 0]],
+      ["attach", BACK],
     ]],
 
     ["usb-c", [
@@ -395,12 +489,13 @@ function keyboard() = let (
       ["position", BOTTOM+BACK],
       ["anchor", TOP+BACK],
       ["offset", [-25.2, 2.8, 0]],
+      ["attach", BACK],
     ]],
   ],
 );
 
 module keyboard(anchor = CENTER, spin = 0, orient = UP) {
-  pcba(keyboard()) children();
+  pcba(keyboard(), anchor=anchor, spin=spin, orient=orient) children();
 }
 
 function battery_pack() = pcba(
@@ -438,6 +533,7 @@ function battery_pack() = pcba(
       ["position", TOP+LEFT],
       ["anchor", BOTTOM+LEFT],
       ["offset", [-0.8, 0, 0]],
+      ["attach", LEFT],
     ]],
 
     ["usb-c", [
@@ -446,6 +542,7 @@ function battery_pack() = pcba(
       ["position", BOTTOM+RIGHT+FRONT],
       ["anchor", TOP+RIGHT+FRONT],
       ["offset", [-7.5, 0, 0]],
+      ["attach", FRONT],
     ]],
 
     ["usb-a-mini", [
@@ -454,6 +551,7 @@ function battery_pack() = pcba(
       ["position", BOTTOM+RIGHT+FRONT],
       ["anchor", TOP+RIGHT+FRONT],
       ["offset", [-20.6, 0, 0]],
+      ["attach", FRONT],
     ]],
 
     ["button", [
@@ -462,6 +560,7 @@ function battery_pack() = pcba(
       ["position", TOP+LEFT+FRONT],
       ["anchor", BOTTOM+LEFT+FRONT],
       ["offset", [8.5, 0, 0]],
+      ["attach", FRONT],
     ]],
 
     ["switch", [
@@ -470,6 +569,7 @@ function battery_pack() = pcba(
       ["position", TOP+LEFT+BACK],
       ["anchor", BOTTOM+LEFT+BACK],
       ["offset", [8.4, 0, 0]],
+      ["attach", BACK],
     ]],
 
     ["switch_thru", [
@@ -494,6 +594,7 @@ function battery_pack() = pcba(
       ["position", BOTTOM+FRONT+LEFT],
       ["anchor", TOP+FRONT+LEFT],
       ["offset", [23, 7.5, 0]],
+      ["attach", DOWN],
     ]],
   ],
 
@@ -505,6 +606,7 @@ function battery_pack() = pcba(
         ["position", BOTTOM+FRONT+LEFT],
         ["anchor", TOP+FRONT+LEFT],
         ["offset", [24.5 + 12.5 * i, 0, 0]],
+        ["attach", DOWN],
       ]] ],
 
     // 3v pads
@@ -515,12 +617,13 @@ function battery_pack() = pcba(
         ["position", BOTTOM+BACK+RIGHT],
         ["anchor", TOP+BACK+RIGHT],
         ["offset", [-30 - 12.5 * i, 0, 0]],
+        ["attach", DOWN],
       ]] ],
 
   ));
 
 module battery_pack(anchor = CENTER, spin = 0, orient = UP) {
-  pcba(battery_pack()) children();
+  pcba(battery_pack(), anchor=anchor, spin=spin, orient=orient) children();
 }
 
 function compute() = pcba(
@@ -530,20 +633,22 @@ function compute() = pcba(
   mount_hole_offset = 3.5, // spec
   mount_hole_spacing = [29*2, 23], // spec
   components = [
+
     ["header", [
-      ["size", [50.6, 5, 8.5]], // measured
+      ["size", [51, 5, 2.8]], // measured
       ["color", "#222222"],
       ["position", BACK + TOP],
       ["anchor", BACK + BOTTOM],
       ["offset", [0, -0.9, 0]], // measured
     ]],
 
-    ["header_thru", [
-      ["size", [50.6, 5, 2.0]], // measured
-      ["color", "#aaaaaa"],
+    ["header_pins", [
+      ["size", [48.8, 3.5, 11.5]], // measured
+      ["color", "#dddd99"],
       ["position", BACK + BOTTOM],
-      ["anchor", BACK + TOP],
-      ["offset", [0, -0.9, 0]], // measured
+      ["anchor", BACK + BOTTOM],
+      ["offset", [0, -1.7, -2.0]], // measured
+      ["attach", TOP],
     ]],
 
     ["hdmi", [
@@ -552,6 +657,7 @@ function compute() = pcba(
       ["position", FRONT + TOP + LEFT],
       ["anchor", FRONT + BOTTOM],
       ["offset", [12.4, -0.75, 0]], // spec, measured
+      ["attach", FRONT],
     ]],
 
     ["usb_1", [
@@ -560,6 +666,7 @@ function compute() = pcba(
       ["position", FRONT + TOP + LEFT],
       ["anchor", FRONT + BOTTOM],
       ["offset", [41.4, -1.00, 0]], // spec, measured
+      ["attach", FRONT],
     ]],
 
     ["usb_2", [
@@ -568,6 +675,7 @@ function compute() = pcba(
       ["position", FRONT + TOP + LEFT],
       ["anchor", FRONT + BOTTOM],
       ["offset", [54, -1.00, 0]], // spec, measured
+      ["attach", FRONT],
     ]],
 
     ["csi2", [ 
@@ -577,6 +685,8 @@ function compute() = pcba(
       ["anchor", BOTTOM + FRONT],
       ["spin", 90],
       ["offset", [0.80, 0, 0]], // measured
+      ["attach", FRONT],
+      ["attach_orient", RIGHT],
     ]],
 
     ["sdslot", [
@@ -586,6 +696,8 @@ function compute() = pcba(
       ["anchor", BOTTOM + BACK],
       ["spin", 90],
       ["offset", [1.8, -13, 0]], // measured
+      ["attach", BACK],
+      ["attach_orient", LEFT],
     ]],
 
     ["core", [
@@ -607,7 +719,7 @@ function compute() = pcba(
   ]);
 
 module compute(anchor = CENTER, spin = 0, orient = UP) {
-  pcba(compute()) children();
+  pcba(compute(), anchor=anchor, spin=spin, orient=orient) children();
 }
 
 // TODO function pcb_part( ... ) info builder / normalizer
@@ -648,7 +760,7 @@ module pcb_part(info, pcb_h, anchor = undef, spin = 0, orient = UP) {
 
   nom = struct_val(info, "tag", "keep");
   ank = struct_val(info, "anchor", nom == "remove" ? CENTER : BOTTOM);
-  height = default(h, pcb_h + (nom == "remove" ? 2*$eps : 0));
+  height = default(h, pcb_h + (nom == "remove" ? 4*$eps : 0));
 
   tag(nom)
   color_this(struct_val(info, "color", "default"))
@@ -678,7 +790,7 @@ module pcb_part(info, pcb_h, anchor = undef, spin = 0, orient = UP) {
 }
 
 function pcba(
-  size, rounding, // simple rectangle, maybe rounded
+  size, rounding=0, // simple rectangle, maybe rounded
   // -- or -- 
   shape, height, // extruded path or region
 
@@ -778,39 +890,30 @@ module pcba(info, anchor = CENTER, spin = 0, orient = UP) {
   pcb_size = struct_val(info, "size");
   pcb_xlate = struct_val(info, "pcb_xlate");
 
-  part_anchors = [
+  anchors = [
     for (comp = struct_val(info, "components"))
     let (
       name = comp[0],
       cinfo = comp[1],
+      attach = struct_val(cinfo, "attach"),
+    )
+    if (is_def(attach))
+    let (
       pos = struct_val(cinfo, "position", TOP),
+      spin = struct_val(cinfo, "spin", TOP),
+      nom = struct_val(cinfo, "tag", "keep"),
+      ank = struct_val(cinfo, "anchor", nom == "remove" ? CENTER : BOTTOM),
       xlate = struct_val(cinfo, "offset", [0, 0, 0]),
       size = pcb_part_size(cinfo, pcb_size.z),
+      sz = zrot(spin, size),
+      loc = pcb_xlate + v_mul(pos, pcb_size/2) - v_mul(ank, sz/2) + xlate,
 
-      loc1 = v_mul(pos, pcb_size/2) + pcb_xlate,
-      loc = loc1 + xlate + UP*size.z/2,
+      po = loc + v_mul(attach, sz/2),
+      orient = struct_val(cinfo, "attach_orient", attach),
+    ) named_anchor(name, po, orient)
+  ];
 
-      orient = struct_val(cinfo, "orient", UP),
-    )
-    named_anchor(name, loc, orient)];
-
-  // TODO if we naturalize mount holes into negative parts below, then
-  // anchors here should also generalize for any hole/negative part?
-  mount_anchors = mount_hole_d ? flatten([
-    let(
-      pts = grid_copies(spacing=struct_val(info, "mount_hole_spacing"), p=pcb_xlate),
-    )
-    for (i = idx(pts))
-    [
-      named_anchor(str("mount_hole_", i), pts[i], UP),
-      named_anchor(str("mount_up_",   i), pts[i] + UP*pcb_size.z/2, UP),
-      named_anchor(str("mount_down_", i), pts[i] + DOWN*pcb_size.z/2, DOWN),
-    ]
-  ]) : [];
-
-  attachable(anchor, spin, orient, size=bounds,
-    anchors=concat(part_anchors, mount_anchors),
-  ) {
+  attachable(anchor, spin, orient, size=bounds, anchors=anchors) {
     diff() translate(pcb_xlate) pcb_plate(info) {
 
       // TODO can we naturalize mount holes into ["tag", "remove"] parts with d & h?
