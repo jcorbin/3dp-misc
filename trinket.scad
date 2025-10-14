@@ -22,7 +22,7 @@ tolerance = 0.4;
 feature = 0.4;
 
 // Generic chamfer for things like bed interface and outside non-interface edges.
-chamfer = 0.5;
+chamfer = 1.5;
 
 // Generic rounding for anonymous edges.
 rounding = 1.5;
@@ -119,60 +119,102 @@ module dev() {
     [tolerance, tolerance],
 
     // TODO should we just bake this "under-bulk clearance" into battery_pack data?
-    [tolerance+1, tolerance],
+    [tolerance+1, tolerance+5],
   ];
 
   info = battery_pack();
   void = struct_val(info, "bounds") + sum(transpose(tol));
   // TODO lack of button clearance baked into battery_pack data may be a problem
 
-  tt = transpose(tol);
-
+  box_size = void + sum(transpose(sides));
   // back_half(s=500)
-  diff() cuboid(size=void + sum(transpose(sides)), rounding=rounding) {
+  // diff()
+  // cuboid(size=box_size, chamfer=chamfer) {
+  //
+  //   void_rounding = rounding;
+  //
+  //   // void
+  //   tag("remove")
+  //     cuboid(size=void, rounding=void_rounding) {
+  //
+  //     // top entry
+  //     let (
+  //       cut = sides.z[1] + rounding,
+  //     )
+  //     attach(TOP, BOTTOM, overlap=rounding + $eps)
+  //      cuboid(
+  //         size=[void.x, void.y, cut + 2*$eps],
+  //         rounding=rounding, edges="Z");
+  //
+  //     // X cutout
+  //     let (
+  //       cut = [
+  //         max(sides.x),
+  //         void.y - sum(tol.y) - 2*struct_val(info, "rounding") - 2*wall,
+  //         void.z
+  //       ],
+  //     )
+  //     up(void_rounding)
+  //     attach([ LEFT, RIGHT], LEFT, overlap=$eps)
+  //       cuboid(
+  //         size=[cut.x + 2*$eps, cut.y, cut.z + $eps],
+  //         rounding=rounding, edges=[
+  //           [1, 1, 0, 0], // yz -- +- -+ ++
+  //           [0, 0, 0, 0], // xz
+  //           [0, 0, 0, 0], // xy
+  //         ]);
+  //
+  //     // Y cutout
+  //     let (
+  //       cut = [
+  //         void.x - sum(tol.x) - 2*struct_val(info, "rounding") - 2*wall,
+  //         max(sides.y),
+  //         void.z
+  //       ],
+  //     )
+  //     up(void_rounding)
+  //     attach([ BACK, FRONT ], FRONT, overlap=$eps)
+  //       cuboid(
+  //         size=[cut.x, cut.y + 2*$eps, cut.z + $eps],
+  //         rounding=rounding, edges=[
+  //           [0, 0, 0, 0], // yz -- +- -+ ++
+  //           [1, 1, 0, 0], // xz
+  //           [0, 0, 0, 0], // xy
+  //         ]);
+  //
+  //   }
+  //
+  //   tt = transpose(tol);
+  //   translate(tt[0] - tt[1])
+  //   pcba(info, orient=DOWN, spin=180, null=true) {
+  //
+  //     bnd = struct_val(info, "bounds");
+  //     xlate = struct_val(info, "pcb_xlate");
+  //     bulk_h = bnd.z + xlate.z + 1 + $eps;
+  //
+  //     // mounting bulkheads
+  //     attach(["mount_hole_0", "mount_hole_1", "mount_hole_2", "mount_hole_3"], TOP)
+  //     tag("keep")
+  //     cyl(
+  //       d1=4.25,
+  //       d2=3.75,
+  //       chamfer1=-1,
+  //       h=bulk_h);
+  //       // TODO merge into side corner
+  //       // TODO wider base
+  //       // TODO locating pins or holes (heatset, or nut insert)
+  //
+  //     // TODO access ports
+  //
+  //   }
+  // }
 
-    // void
-    tag("remove")
-      cuboid(size=void, rounding=rounding);
-
-    // entry
-    let (
-      cut = sides.z[1] + rounding,
-    )
-    tag("remove")
-      attach(TOP, BOTTOM, overlap=cut+$eps)
-      cuboid(
-        size=[void.x, void.y, cut + 2*$eps],
-        rounding=rounding, edges="Z");
-
-    translate(tt[0] - tt[1])
-    pcba(info, orient=DOWN, spin=180, null=true) {
-
-      bnd = struct_val(info, "bounds");
-      xlate = struct_val(info, "pcb_xlate");
-      bulk_h = bnd.z + xlate.z + 1 + $eps;
-
-      // mounting bulkheads
-      attach(["mount_hole_0", "mount_hole_1", "mount_hole_2", "mount_hole_3"], TOP)
-      tag("keep")
-      cyl(
-        d1=4.25,
-        d2=3.75,
-        chamfer1=-1,
-        h=bulk_h);
-        // TODO merge into side corner
-        // TODO wider base
-        // TODO locating pins or holes (heatset, or nut insert)
-
-      // TODO access ports
-
-    }
-  }
+  // buddy ghost
+  up(2) // TODO solve placement wrt bulkheads
+  %battery_pack(orient=DOWN, spin=180)
+  show_anchors(s = 10, std = false, custom = true);;
 
   // TODO matching lid part
-
-  // TODO buddy ghost
-  %battery_pack(orient=DOWN, spin=180);
 
   // // battery_pack(orient=DOWN)
   // // compute()
@@ -566,8 +608,11 @@ module keyboard(anchor = CENTER, spin = 0, orient = UP) {
 
 function battery_pack() = let (
   pcb_size = [100, 48.25],
-) pcba(
-  shape = rect(size=pcb_size, rounding=5),
+  pcb_rounding = 5,
+) concat([
+  ["rounding", pcb_rounding],
+], pcba(
+  shape = rect(size=pcb_size, rounding=pcb_rounding),
   height = 1.5,
   components = concat([
 
@@ -688,7 +733,7 @@ function battery_pack() = let (
         ["attach", DOWN],
       ]] ],
 
-  ));
+  )));
 
 module battery_pack(anchor = CENTER, spin = 0, orient = UP) {
   pcba(battery_pack(), anchor=anchor, spin=spin, orient=orient) children();
