@@ -28,41 +28,24 @@ chamfer = 1.5;
 // Generic rounding for anonymous edges.
 rounding = 1.5;
 
-// General wall thickness between voids
-wall = 1.2;
+// Shell wall thickness.
+wall = 2;
 
-/* [Designed Supports] */
-
-// Interface gap between support and supported part.
-support_gap = 0.2;
-
-// Thickness of support walls.
-support_width = 0.8;
-
-// Thickness of internal support struts.
-support_strut = 0.4;
-
-// Thickness of footer support walls that run parallel to and underneath floating external walls.
-support_wall_width = 2.4;
+// Button outer size, diamter X height.
+body_size = [ 15, 6.5 ];
 
 /* [Part Selection] */
 
-mode = 100; // [0:Assembly, 100:Dev]
-
-// Section cutaway in preview mode.
-preview_cut = false;
-
-// Show top interlock interference ghost.
-full_arc_preview = true;
-
-// Show support walls in preview, otherwise only active in production renders.
-$support_preview = false;
+mode = 1; // [0:Assembly, 1:Body, 100:Dev]
 
 /// dispatch / integration
 
 module main() {
   if (mode == 0) {
     assembly();
+  }
+  else if (mode == 1) {
+    body(body_size.x, body_size.y);
   }
   else if (mode == 100) {
     dev();
@@ -71,7 +54,7 @@ module main() {
 
 module assembly() {
 
-  // TODO body ( w/ attach )
+  body(body_size.x, body_size.y);
   // TODO glyph
 
 }
@@ -101,9 +84,7 @@ module base_reference_15(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
-module base(
-  d,
-  h,
+module base(d, h,
   base = 1.5,
   chamfer = 0,
   anchor = CENTER, spin = 0, orient = UP,
@@ -144,68 +125,48 @@ module base(
   }
 }
 
+module body(d, h,
+  wall = wall,
+  bar = [2, 1],
+  anchor = CENTER, spin = 0, orient = UP,
+) {
+  hole_d = d - 2*wall;
+  attachable(anchor, spin, orient, d=d, h=h) {
+    diff()
+    base(d=d, h=h, chamfer=0.5) {
+      tag("remove")
+      attach(BOTTOM, TOP, overlap=hole_d/2)
+        onion(d=hole_d, cap_h=h - wall);
+      tag("keep")
+      up(bar.y)
+      // zrot_copies(rots=[-45, 45])
+      attach(BOTTOM, FRONT)
+        cuboid(
+          size=[hole_d + 2*$eps, bar.y, bar.x],
+          rounding=bar.y*0.4, edges=[
+            [1, 0, 1, 0], // yz -- +- -+ ++
+            [0, 0, 0, 0], // xz
+            [0, 0, 0, 0], // xy
+          ]);
+
+    }
+    children();
+  }
+}
+
 module dev() {
 
-  // echo(str("prof", prof));
-  // color("red")
-  //   stroke(prof, width=feature);
-  //   // down(.2) polygon(struct_val(prof, "basic_path"));
-  // // color("blue") down(.1) polygon(struct_val(prof, "cut_path"));
-  // // color("yellow") polygon(struct_val(prof, "smooth_path"));
-
-  // #cyl(d=10, h=4.35, anchor=BOTTOM, rounding=2);
-
-  // #cuboid(
-  //   size=[ 10, 10, 4.35 ],
-  //   anchor=BOTTOM,
-  //   rounding=5, edges=[
-  //     [0, 0, 0, 0], // yz -- +- -+ ++
-  //     [0, 0, 0, 0], // xz
-  //     [1, 1, 1, 1], // xy
-  //   ]);
-
-  // #cyl(d=10, h=1.5, anchor=BOTTOM)
-  //   attach(TOP, CENTER)
-  //   top_half()
-  //   sphere(d=10);
-
-  // #base(d=10, h=4.35, chamfer=0.5);
-  // base_reference()
-
-  wall = 1.5;
-  d = 15;
-  h = 6.5;
-  bar = [2, 1];
-
-  // back_half()
-  diff()
-  base(d=d, h=h, chamfer=0.5)
+  // ⭐
+  // 🌟
+  // ✴️
+  // ✨
+  // ✳️
+  // ❇️
+  
+  body(15, 6.5)
   // base_reference_15()
-  // body()
-  // // glyph()
+  // glyph()
   {
-
-    hole_d = d - 2*wall;
-
-    tag("remove")
-      attach(BOTTOM, TOP, overlap=hole_d/2)
-      onion(d=hole_d, cap_h=h - wall);
-
-    tag("keep")
-      up(bar.y)
-      attach(BOTTOM, FRONT)
-      cuboid(
-        size=[
-          hole_d + 2*$eps,
-          bar.y,
-          bar.x,
-        ],
-        rounding=bar.y*0.4, edges=[
-          [1, 0, 1, 0], // yz -- +- -+ ++
-          [0, 0, 0, 0], // xz
-          [0, 0, 0, 0], // xy
-        ]);
-
     // %show_anchors(std=false);
     // attach([
     //   "mount_up_0",
@@ -217,6 +178,13 @@ module dev() {
     // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
     // %cube($parent_size, center=true);
   }
+
+  // echo(str("prof", prof));
+  // color("red")
+  //   stroke(prof, width=feature);
+  //   // down(.2) polygon(struct_val(prof, "basic_path"));
+  // // color("blue") down(.1) polygon(struct_val(prof, "cut_path"));
+  // // color("yellow") polygon(struct_val(prof, "smooth_path"));
 
   // shape = XXX();
   // if ($preview) {
@@ -280,96 +248,10 @@ function pcb_part_size(info, pcb_h) = let (
   : is_def(d) ? [d, d, h]
   : size;
 
-module if_support() {
-  if (!$preview || $support_preview) {
-    children();
-  }
-}
-
 function scalar_vec2(v, dflt) =
   is_undef(v)? undef :
   is_list(v)? [for (i=[0:1]) default(v[i], default(dflt, 0))] :
   !is_undef(dflt)? [v,dflt] : [v,v];
-
-module support_wall(
-  h, l,
-  gap = support_gap,
-  width = support_width,
-  strut = support_strut,
-  anchor = CENTER, spin = 0, orient = UP
-) {
-  if_support()
-  tag("keep")
-  attachable(anchor, spin, orient, size=[width, l, h]) {
-    sparse_wall(
-      h=h - 2*gap,
-      l=l - 2*gap,
-      thick=width,
-      strut=strut);
-
-    children();
-  }
-}
-
-function ngon_max_bottom(path) = let (
-  bounds = pointlist_bounds(path),
-) [
-  for (pt = path)
-    pt.y == bounds[0].y
-      ? [pt.x < 0 ? bounds[0].x : bounds[1].x, pt.y]
-      : pt
-];
-
-function cutaway_shape(w, h, shape) = let (
-  cut_bounds = pointlist_bounds(shape),
-  cut_x = cut_bounds[1].x + w,
-  cut_y = h,
-  bot_y = cut_bounds[0].y,
-  bot_x = cut_bounds[0].x,
-  top_y = cut_bounds[1].y,
-  slant_from = [bot_x, top_y],
-  max_slant_to = [cut_x, cut_y + $eps],
-  cut_out = [cut_x, bot_y - $eps],
-
-  basic = [
-    cut_out,
-    [bot_x - chamfer - $eps, bot_y - $eps],
-    [bot_x, bot_y+ chamfer],
-    slant_from,
-    line_intersection(
-      [ slant_from, slant_from + [ 1, 1 ] ],
-      [ cut_out, max_slant_to ],
-    ),
-  ],
-  out = round_corners(basic, method="smooth", joint=[0, 0, 0, 2*chamfer, 0]),
-) out;
-
-function interlock_profile(
-  n=interlock_ngon,
-  d=interlock_d,
-  tolerance=0,
-  chamfer=interlock_chamfer,
-  sharp=false,
-  open=false,
-) = let (
-  points = n % 2 == 0
-    ? regular_ngon(n=n, d=d + tolerance, align_side=[0, -1])
-    : regular_ngon(n=n, d=d + tolerance, align_tip=[0, 1]),
-  chamfer_points = len(points)-2,
-  chamfers = n % 2 == 0
-    ? concat(
-      [0, 0],
-      repeat(chamfer, floor(chamfer_points/2)-1),
-      repeat(sharp ? 0 : chamfer, 2),
-      repeat(chamfer, floor(chamfer_points/2)-1),
-    )
-    : concat(
-      [sharp ? 0 : chamfer],
-      repeat(chamfer, floor(chamfer_points/2)),
-      [0, 0],
-      repeat(chamfer, floor(chamfer_points/2))
-    ),
-) round_corners(open ? ngon_max_bottom(points) : points, method="smooth", joint=chamfers);
 
 module preview_cut(v=BACK, s=10000) {
   if ($preview && preview_cut)
