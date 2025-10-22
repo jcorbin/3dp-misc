@@ -61,105 +61,57 @@ $support_preview = false;
 /// dispatch / integration
 
 module main() {
-
   if (mode == 0) {
     assembly();
   }
-
   else if (mode == 100) {
     dev();
   }
-
+  else if (mode == 101) {
+    test_brackets();
+  }
 }
 
 module assembly() {
-  wall = feature * 3;
 
-  inner_margin = [
-    [1, 1 + 46],
-    [1, 1],
-    [1, 1]
-  ];
+  // TODO both shell halves
 
-  mainboard_size = struct_val(compute(), "size");
-  mainboard_clearance = [ 8, 83 ];
+  // TODO frame() intermediate as a fit test
 
-  psu_size = struct_val(power_supply(), "size");
-  psu_gap = 4;
+  shell() {
 
-  split_at = 30;
+    let (
+      mainboard_size = struct_val(compute(), "bounds"),
+      psu_size = struct_val(power_supply(), "size"),
+      psu_gap = 4, // XXX dupe
+      mainboard_clearance = [ 8, 83 ], // XXX dupe
+    )
 
-  // bottom half maths ; TODO top half
-  inner_size = sum(transpose(inner_margin)) + [
-    mainboard_size.x,
-    mainboard_size.y + psu_gap + psu_size.y,
-    mainboard_size.z + sum(mainboard_clearance) - split_at
-  ];
-  outer_size = inner_size + v_mul([2, 2, 1], scalar_vec3(wall));
+    attach_part("mainboard")
+      attach(BOTTOM, BOTTOM)
+      up(mainboard_clearance[0])
+      down(4.5) // io shield unerhang
+        compute();
+        // %cube(_attach_geom_size($parent_geom), center=true);
 
-  echo(str(
-    "inner_size:", inner_size,
-    "; ",
-    "outer_size:", outer_size,
-  ));
+    attach_part("power_supply")
+      attach(BOTTOM, LEFT)
+        power_supply();
+        // %cube(_attach_geom_size($parent_geom), center=true);
 
-  // left_half(s=400)
-  up(outer_size.z/2 - wall - mainboard_clearance[0])
-  diff()
-  cuboid(
-    outer_size,
-    chamfer=wall,
-    edges=[
-      [1, 1, 0, 0], // yz -- +- -+ ++
-      [1, 1, 0, 0], // xz
-      [1, 1, 1, 1], // xy
-    ],
-  ) {
-
-    // TODO chamfer or round the Z corners separately / more
-    // TODO or make this a clever-er path sweep ( profile around perimiter )
-
-    tag("remove")
-    attach(TOP, BOTTOM, overlap=inner_size.z)
-    cuboid(
-      inner_size + [0, 0, 2*$eps],
-      chamfer=wall,
-      edges=[
-        [1, 1, 0, 0], // yz -- +- -+ ++
-        [1, 1, 0, 0], // xz
-        [1, 1, 1, 1], // xy
-      ],
-    );
-
-    // TODO ribs
-    // TODO hinges
-    // TODO latches
-
+    // TODO screws
+    // TODO wires
+    // TODO button
   }
-
-  // TODO mount posts in bottom half
-  // TODO fan duct port in top half
-
-  back(psu_size.y/2 + psu_gap)
-  down(4.5) // io shield underhang
-  left((inner_margin.x[1] - inner_margin.x[0])/2)
-    compute(anchor=BOTTOM);
-
-  // TODO module-ize
-  left( (inner_size.x - psu_size.x)/2 )
-  fwd(inner_size.y/2 - chamfer)
-  back(psu_size.y/2)
-  down()
-    power_supply(anchor=BOTTOM);
-
 }
 
 module dev() {
-
   // // battery_pack(orient=DOWN)
   // compute()
-  power_supply()
-  // assembly()
+  // power_supply()
+  // compute_io_bracket(1)
+  // power_supply_bracket(1)
+  assembly()
   {
     // %show_anchors(std=false);
     // attach([
@@ -205,6 +157,149 @@ module dev() {
 
 }
 
+module restore_part(part) {
+  req_children($children);
+  $parent_geom = part[1];
+  $anchor_inside = part[2];
+  T = part[3];
+  $parent_parts = [];
+  multmatrix(T)
+    children();
+}
+
+module test_brackets() {
+
+  // ydistribute(
+  //   spacing = 5,
+  //   sizes = [
+  //     struct_val(compute_io_bracket(), "size").y,
+  //     struct_val(power_supply_bracket(), "size").y
+  //   ],
+  // )
+
+  let (
+    w = wall,
+    h = wall,
+  )
+  {
+    compute_io_bracket(size=w, height=h);
+    power_supply_bracket(size=w, height=h);
+  }
+
+}
+
+module shell(anchor = CENTER, spin = 0, orient = UP) {
+
+  // TODO parametrize?
+  wall = feature * 3;
+  inner_margin = [
+    [1, 1 + 46],
+    [1, 1],
+    [1, 1]
+  ];
+  mainboard_clearance = [ 8, 83 ];
+  psu_gap = 4;
+  split_at = 10;
+
+  mainboard = compute();
+  mainboard_size = struct_val(mainboard, "size");
+  mainboard_bounds = mainboard_size + [0, 0, sum(mainboard_clearance)];
+
+  psu_size = struct_val(power_supply(), "size");
+
+  // bottom half maths ; TODO top half
+  psu_room = psu_gap + psu_size.z;
+  inner_size
+    = sum(transpose(inner_margin))
+    + mainboard_bounds 
+    + [0, psu_room, 0]
+    - [0, 0, split_at];
+
+  outer_size = inner_size + v_mul([2, 2, 1], scalar_vec3(wall));
+
+  mainboard_part = define_part("mainboard",
+    attach_geom(size=mainboard_bounds),
+    T=
+      back((psu_size.z + psu_gap)/2)
+      *down((inner_size.z - mainboard_bounds.z - wall)/2)
+      *left((inner_size.x - mainboard_size.x)/2),
+    inside=true);
+
+  psu_part = define_part("power_supply",
+    attach_geom(size=[
+      psu_size.y,
+      psu_size.z,
+      psu_size.x,
+    ]),
+    T=
+      fwd((mainboard_size.y + psu_gap)/2)
+      *down((inner_size.z - psu_size.x - wall)/2)
+      *left((inner_size.x - psu_size.y)/2),
+    inside=true);
+
+  parts = [
+    define_part("inner",
+      attach_geom(size=inner_size)),
+    mainboard_part,
+    psu_part,
+  ];
+
+  attachable(anchor, spin, orient, size=outer_size, parts=parts) {
+
+    // back_half(s=2*max(outer_size))
+    // left_half(s=2*max(outer_size))
+
+    diff() cuboid(
+      outer_size,
+      chamfer=wall, edges=[
+        [1, 1, 0, 0], // yz -- +- -+ ++
+        [1, 1, 0, 0], // xz
+        [1, 1, 1, 1], // xy
+      ])
+    {
+
+      // TODO chamfer or round the Z corners separately / more
+      // TODO or make this a clever-er path sweep ( profile around perimiter )
+
+      tag("remove")
+      attach(TOP, BOTTOM, overlap=inner_size.z)
+      cuboid(
+        inner_size + [0, 0, 2*$eps],
+        chamfer=wall, edges=[
+          [1, 1, 0, 0], // yz -- +- -+ ++
+          [1, 1, 0, 0], // xz
+          [1, 1, 1, 1], // xy
+        ]);
+
+      // io shield window
+      restore_part(mainboard_part)
+      attach(LEFT, BOTTOM)
+        right(1.2 + 2 + 3) // TODO un-fudge
+        fwd(18) // TODO un-fudge
+        down(1.5*wall)
+        compute_io_cutout(2*wall);
+
+      // psu window
+      restore_part(psu_part)
+      attach(LEFT, BOTTOM)
+        xflip()
+        zrot(90)
+        down(1.5*wall)
+        power_supply_cutout(2*wall);
+
+      // TODO mount posts in bottom half
+      // TODO fan duct port in top half
+
+      // TODO ribs
+      // TODO hinges
+      // TODO latches
+
+    }
+
+    children();
+  }
+}
+
 function power_supply() = [
   ["size", [ 81.5, 150, 40.5 ]],
   ["rounding", 1],
@@ -225,13 +320,115 @@ function power_supply() = [
   ]],
 
   ["fan_port", [
-    ["at", [60, 20.25]],
+    ["at", [51.25, 20.25]],
     ["size", [37.5, 5]],
     ["hex", 10],
     ["hex_spacing", 10.2],
   ]],
 
+  ["inlet", [
+    ["at", [15.2, 17]],
+    ["size", [24, 31.5, 20]],
+    ["rounding", 1],
+    ["extend", 3],
+  ]],
 ];
+
+function power_supply_bracket(
+  size = wall,
+  height = wall,
+) = let (
+  w = scalar_vec2(size),
+  info = power_supply(),
+  psu_size = struct_val(info, "size"),
+
+  size = [
+    psu_size.x + 2 * w.x,
+    psu_size.z + 2 * w.y,
+    height
+  ],
+) [
+  ["wall", w],
+  ["size", size],
+];
+
+module power_supply_bracket(
+  size = wall,
+  height = wall,
+  anchor = CENTER, spin = 0, orient = UP,
+) {
+  info = power_supply_bracket(size, height);
+  w = struct_val(info, "wall");
+  size = struct_val(info, "size");
+  attachable(anchor, spin, orient, size=size) {
+    diff()
+    cuboid(size, rounding=min(w), edges="Z")
+      power_supply_cutout(height + 2*$eps);
+    children();
+  }
+}
+
+module power_supply_cutout(
+  height,
+  anchor = CENTER, spin = 0, orient = UP,
+) {
+  info = power_supply();
+  psu_size = struct_val(info, "size");
+  size = [
+    psu_size.x, // TODO trim
+    psu_size.z, // TODO trim
+    height
+  ];
+
+  default_tag("remove")
+  attachable(anchor, spin, orient, size=size) {
+    left(psu_size.x/2)
+    fwd(psu_size.z/2)
+    {
+
+      // mount holes
+      let (
+        mount = struct_val(info, "mount"),
+      )
+      down($eps)
+      move_copies(struct_val(mount, "hole_at"))
+        screw_hole(
+          struct_val(mount, "screw_spec"),
+          tolerance=struct_val(mount, "hole_tolerance"),
+          length=height + 2*$eps);
+      // TODO countersunk flat-heads when possible
+
+      // fan grill
+      let ( 
+        fan_port = struct_val(info, "fan_port"),
+        size = struct_val(fan_port, "size"),
+      )
+      down($eps)
+        translate(struct_val(fan_port, "at"))
+        cyl(d=size.x, h=height + 2*$eps);
+
+      // C14 inlet
+      let (
+        inlet = struct_val(info, "inlet"),
+        in_size = struct_val(inlet, "size"),
+        size = [
+          in_size.x + 2*tolerance,
+          in_size.y + 2*tolerance,
+          height + 2*$eps],
+        at = struct_val(inlet, "at")
+      )
+      { echo(str( "sz:", size, " at:", at, ))
+      down($eps)
+      translate(at)
+        cuboid(size, rounding=4*tolerance, edges="Z");
+      }
+
+      // TODO support sprues
+
+    }
+    children();
+  }
+}
 
 module power_supply(anchor = CENTER, spin = 0, orient = UP) {
   info = power_supply();
@@ -240,6 +437,7 @@ module power_supply(anchor = CENTER, spin = 0, orient = UP) {
 
   attachable(anchor, spin, orient, size=size) {
     recolor("#994422") // NOTE not actual color, but for contrast
+    tag_scope("power_supply")
     diff()
     cuboid(size, rounding=struct_val(info, "rounding")) {
       // hollow
@@ -255,6 +453,7 @@ module power_supply(anchor = CENTER, spin = 0, orient = UP) {
         down(h)
         fwd(porch.x)
         position(BACK+TOP)
+        left($eps)
         cuboid(
           [
             size.x + 2*$eps,
@@ -306,15 +505,13 @@ module power_supply(anchor = CENTER, spin = 0, orient = UP) {
         // C14 inlet
         tag("keep")
         let (
-          size = [24, 31.5, 20],
-          at = [15.2, 17],
-          rounding = 1,
-          extend = 3,
+          inlet = struct_val(info, "inlet"),
+          size = struct_val(inlet, "size"),
         )
-        down(size.z - extend)
+        down(size.z - struct_val(inlet, "extend"))
         recolor("#222222")
-        translate(at)
-          cuboid(size, rounding=rounding, edges="Z");
+        translate(struct_val(inlet, "at"))
+          cuboid(size, rounding=struct_val(inlet, "rounding"), edges="Z");
 
       }
 
@@ -361,7 +558,7 @@ function compute() = let (
     ]],
 
     ["io_shield_base", [
-      ["size", [0.2, 162, 49]],
+      ["size", [0.2, 163, 49]],
       ["color", "#222222"],
       ["position", BACK + LEFT + TOP],
       ["anchor", BACK + LEFT + BOTTOM],
@@ -369,7 +566,7 @@ function compute() = let (
     ]],
 
     ["io_shield", [
-      ["size", [1, 158, 45]],
+      ["size", [1, 159, 45]],
       ["color", "#444444"],
       ["position", BACK + LEFT + TOP],
       ["anchor", BACK + LEFT + BOTTOM],
@@ -377,6 +574,65 @@ function compute() = let (
       ["attach", LEFT],
     ]],
   ]);
+
+function compute_io_bracket(
+  size = wall,
+  height = wall,
+) = let (
+  w = scalar_vec2(size),
+  mainboard = compute(),
+  io_shield = struct_val(struct_val(mainboard, "components"), "io_shield"),
+  io_size = struct_val(io_shield, "size"),
+  size = [
+    io_size.y + 2 * w.x,
+    io_size.z + 2 * w.y,
+    height
+  ],
+) [
+  ["wall", w],
+  ["size", size],
+];
+
+module compute_io_bracket(
+  size = wall,
+  height = wall,
+  anchor = CENTER, spin = 0, orient = UP,
+) {
+  info = compute_io_bracket(size, height);
+  w = struct_val(info, "wall");
+  size = struct_val(info, "size");
+  attachable(anchor, spin, orient, size=size) {
+    diff()
+    cuboid(size, rounding=min(w), edges="Z")
+      compute_io_cutout(height + 2*$eps);
+    children();
+  }
+}
+
+module compute_io_cutout(
+  height,
+  anchor = CENTER, spin = 0, orient = UP,
+) {
+  mainboard = compute();
+  io_shield = struct_val(struct_val(mainboard, "components"), "io_shield");
+  io_size = struct_val(io_shield, "size");
+  size = [io_size.y, io_size.z, height];
+  echo(str(
+  "cutout size:", size
+  ));
+
+  default_tag("remove")
+  attachable(anchor, spin, orient, size=size) {
+    union() {
+      cuboid(size);
+      // TODO chamfer corners?
+
+      // TODO support sprues
+
+    }
+    children();
+  }
+}
 
 module compute(anchor = CENTER, spin = 0, orient = UP) {
   pcba(compute(), anchor=anchor, spin=spin, orient=orient) children();
