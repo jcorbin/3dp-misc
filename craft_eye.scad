@@ -36,7 +36,7 @@ body_size = [ 15, 6.5 ];
 
 /* [Part Selection] */
 
-mode = 1; // [0:Assembly, 1:Body, 100:Dev]
+mode = 100; // [0:Assembly, 1:Body, 100:Dev]
 
 /// dispatch / integration
 
@@ -154,6 +154,8 @@ module body(d, h,
   }
 }
 
+use <noto-emoji-2.051/fonts/NotoColorEmoji.ttf>;
+
 module dev() {
 
   // ⭐
@@ -163,21 +165,51 @@ module dev() {
   // ✳️
   // ❇️
   
-  body(15, 6.5)
-  // base_reference_15()
-  // glyph()
-  {
-    // %show_anchors(std=false);
-    // attach([
-    //   "mount_up_0",
-    //   "mount_up_1",
-    //   "mount_up_2",
-    //   "mount_up_3",
-    // ]) anchor_arrow();
-    // zrot(-45)
-    // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-    // %cube($parent_size, center=true);
+  // use <NotoEmoji-VariableFont_wght.ttf>
+  // font = "Noto Emoji:style=Regular";
+  //             text("🌠⚙♻↔♥🌱🍔",size=20,font=font);
+  // echo(textmetrics("🌠⚙♻↔♥🌱🍔",size=20,font=font));
+
+  minkowski() {
+
+    text3d(
+      "♥️",
+      // "⭐",
+      // "🌟",
+      // "✴️",
+      // "✨",
+      // "✳️",
+      // "❇️",
+
+      $eps, center=true,
+
+      // TODO params
+      size=10,
+      // font="Noto Sans:style=Black",
+      // font="Noto Sans Symbols:style=Black",
+      // font="Noto Sans Symbols 2:style=Regular",
+      font="Noto Emoji:style=Regular",
+    );
+
+    sphere(1); // TODO param
+
   }
+
+  // body(15, 6.5)
+  // // base_reference_15()
+  // // glyph()
+  // {
+  //   // %show_anchors(std=false);
+  //   // attach([
+  //   //   "mount_up_0",
+  //   //   "mount_up_1",
+  //   //   "mount_up_2",
+  //   //   "mount_up_3",
+  //   // ]) anchor_arrow();
+  //   // zrot(-45)
+  //   // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
+  //   // %cube($parent_size, center=true);
+  // }
 
   // echo(str("prof", prof));
   // color("red")
