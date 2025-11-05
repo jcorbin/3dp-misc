@@ -250,35 +250,12 @@ module dev() {
 
 }
 
-module restore_part(part) {
-  req_children($children);
-  $parent_geom = part[1];
-  $anchor_inside = part[2];
-  T = part[3];
-  $parent_parts = [];
-  multmatrix(T)
-    children();
-}
-
 // like cumsum, but only sums "after" each ; therefore starts with 0, and final
 // value is dropped.
 function postsum(v) =
   v==[] ? [] :
   assert(is_consistent(v), "\nThe input is not consistent." )
   [for (a = 0, i = 0; i < len(v); a = a+v[i], i = i+1) a];
-
-function pcb_part_size(info, pcb_h) = let (
-  size = struct_val(info, "size"),
-  d = struct_val(info, "d"),
-  reg = struct_val(info, "region"),
-  h = struct_val(info, "h", pcb_h),
-)
-  is_def(reg) ? let(
-    bnd = pointlist_bounds(is_region(reg) ? flatten(reg) : reg),
-    s2 = bnd[1] - bnd[0],
-  ) [s2.x, s2.y, h]
-  : is_def(d) ? [d, d, h]
-  : size;
 
 function scalar_vec2(v, dflt) =
   is_undef(v)? undef :
