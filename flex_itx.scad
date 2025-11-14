@@ -52,11 +52,36 @@ mode = 100; // [0:Assembly, 100:Dev]
 // Section cutaway in preview mode.
 preview_cut = false;
 
-// Show top interlock interference ghost.
-full_arc_preview = true;
-
 // Show support walls in preview, otherwise only active in production renders.
-$support_preview = true;
+$support_preview = false;
+
+/* [Interior Constraints] */
+
+shell_inner_margin = [
+  [1, 1 + 46],
+  [1, 1],
+  [1, 1]
+];
+
+mainboard_clearance = [ 8, 83 ];
+
+mainboard_offest = [ 0, -1, 0 ];
+
+mainboard_mount_hole_d = 3.96;
+
+mainboard_post_hole_d = 3.8;
+
+mainboard_post_foot = 2;
+
+mainboard_post_chamfer = 0.8;
+
+mainboard_hole_chamfer = 0.8;
+
+mainboard_hole_depth_delta = -1;
+
+psu_gap = 5;
+
+psu_mount_screw = "#6-32";
 
 /// dispatch / integration
 
@@ -73,7 +98,6 @@ module main() {
 }
 
 module assembly() {
-
   // TODO both shell halves
 
   // TODO frame() intermediate as a fit test
@@ -84,7 +108,6 @@ module assembly() {
       mainboard_size = struct_val(compute(), "bounds"),
       psu_size = struct_val(power_supply(), "size"),
       psu_gap = 4, // XXX dupe
-      mainboard_clearance = [ 8, 83 ], // XXX dupe
     )
 
     attach_part("mainboard")
@@ -110,7 +133,7 @@ module dev() {
   // compute()
   // power_supply()
   // compute_io_bracket(1)
-  // power_supply_bracket(1)
+  // power_supply_bracket()
   shell()
   // assembly()
   {
@@ -191,16 +214,6 @@ module test_brackets() {
 
 module shell(anchor = CENTER, spin = 0, orient = UP) {
 
-  // TODO parametrize?
-  // wall = feature * 3;
-  inner_margin = [
-    [1, 1 + 46],
-    [1, 1],
-    [1, 1]
-  ];
-  mainboard_clearance = [ 8, 83 ];
-  mainboard_offest = [ 0, -1, 0 ];
-  psu_gap = 5;
   split_at = 10;
 
   mainboard = compute();
@@ -212,7 +225,7 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
   // bottom half maths ; TODO top half
   psu_room = psu_gap + psu_size.z;
   inner_size
-    = sum(transpose(inner_margin))
+    = sum(transpose(shell_inner_margin))
     + mainboard_bounds 
     + [0, psu_room, 0]
     - [0, 0, split_at];
@@ -320,11 +333,10 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
 
       // psu window
       restore_part(psu_part)
-      attach(LEFT, BOTTOM)
+      attach(LEFT, TOP, overlap=wall + $eps)
         xflip()
-        zrot(90)
-        down(1.5*wall)
-        power_supply_cutout(2*wall)
+        zrot(-90)
+        power_supply_cutout(wall + 2*$eps)
           attach_part("inlet") {
             // XXX need part size bounds... this is hack
             sz = $parent_geom[1];
@@ -340,33 +352,29 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
 
       // mainboard mount posts
       restore_part(mainboard_part)
-      let(
-        h=mainboard_clearance[0],
-        w=2,
-
-        // TODO heatset in final
-        hole_d = 3.8,
-        hole_c = wall/2, // 0.4,
-        hole_h = h-1
-
+      let (
+        post_h = mainboard_clearance[0],
+        hole_h = post_h + mainboard_hole_depth_delta,
       ) for (hole = mount_holes) {
         d=struct_val(hole, "d") + 2*wall;
         fwd(2) // XXX fudge
-        up(h/2)
+        up(post_h/2)
         down(mainboard_bounds.z/2)
         position(struct_val(hole, "position"))
         translate(struct_val(hole, "offset"))
         tag("keep")
         tag_scope("mount_post")
           diff() cyl(
-            h=h,
-            d1=d+2*w,
+            h=post_h,
+            d1=d+2*mainboard_post_foot,
             d2=d,
-            chamfer1=-hole_c,
-          )
+            chamfer1=-mainboard_post_chamfer)
             tag("remove")
             attach(TOP, BOTTOM, overlap=hole_h)
-            cyl(d=hole_d, h=hole_h+$eps, chamfer2=-hole_c);
+            cyl(
+              h=hole_h+$eps,
+              d=mainboard_post_hole_d,
+              chamfer2=-mainboard_hole_chamfer);
       }
 
       // cutout floor
@@ -409,7 +417,7 @@ function power_supply() = [
   ["porch", [18, 10]],
 
   ["mount", [
-    ["screw_spec", "#6-32"],
+    ["screw_spec", psu_mount_screw],
     ["hole_tolerance", "normal"],
     ["thread_tolerance", "2B"],
     ["hole_depth" , 10],
@@ -515,14 +523,14 @@ module power_supply_cutout(
       // mount holes
       let (
         mount = struct_val(info, "mount"),
+        at = struct_val(mount, "hole_at"),
+        tol = struct_val(mount, "hole_tolerance"),
+        screw = struct_val(mount, "screw_spec"),
+        head = "none", // TODO "flat" when possible
       )
       down($eps)
-      move_copies(struct_val(mount, "hole_at"))
-        screw_hole(
-          struct_val(mount, "screw_spec"),
-          tolerance=struct_val(mount, "hole_tolerance"),
-          length=height + 2*$eps);
-      // TODO countersunk flat-heads when possible
+      move_copies(at)
+        screw_hole(screw, head=head, tolerance=tol, length=height + 2*$eps);
 
       // fan grill
       let ( 
@@ -644,7 +652,6 @@ function compute() = let (
 
     each [
       let (
-        d = 3.96,
         locs = [
           [33.02, -6.17],
           [165, -6.17],
@@ -655,7 +662,7 @@ function compute() = let (
       for (i = idx(locs))
       [str("mount_hole_", i), [
         ["tag", "remove"],
-        ["d", d],
+        ["d", mainboard_mount_hole_d],
         ["position", BACK+LEFT],
         ["offset", locs[i]],
         // ["attach", DOWN],
