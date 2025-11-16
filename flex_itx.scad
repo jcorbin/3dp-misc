@@ -3,6 +3,31 @@ include <BOSL2/rounding.scad>;
 include <BOSL2/screws.scad>;
 include <BOSL2/walls.scad>;
 
+/***
+
+# first assembly test notes
+
+- [X] increased mainboard under-clearance from 8 to 12
+- [X] increased psu gap from 5 to 6
+- ... increased X&Y inner margin from 1 to 2
+- ... increased wall to 3
+- ... made psu cutout support flat head with thick engough wall
+- [X] deleted bottom pus mount hole, since it interferes with inlet when
+  flat-headed
+
+- [ ] io shield window was not big enough, had to prune corner
+
+# TODO
+
+- feature: power button placement; other front panel features?
+- feature: usb ports from headers
+- feature: wifi antenna placement
+- feature: audio header usage
+- feature: cable retention features in the front-void
+- feature: psu rear hold-down
+
+*/
+
 /* [Geometry Detail] */
 
 // Fragment minimum angle.
@@ -29,7 +54,7 @@ chamfer = 1.5;
 rounding = 1.5;
 
 // General wall thickness between voids
-wall = 1.6;
+wall = 3.0;
 
 /* [Designed Supports] */
 
@@ -58,12 +83,12 @@ $support_preview = false;
 /* [Interior Constraints] */
 
 shell_inner_margin = [
-  [1, 1 + 46],
-  [1, 1],
+  [2, 2 + 46],
+  [2, 2],
   [1, 1]
 ];
 
-mainboard_clearance = [ 8, 83 ];
+mainboard_clearance = [ 12, 83 ];
 
 mainboard_offest = [ 0, -1, 0 ];
 
@@ -73,15 +98,15 @@ mainboard_post_hole_d = 3.8;
 
 mainboard_post_foot = 2;
 
-mainboard_post_chamfer = 0.8;
+mainboard_post_chamfer = 1;
 
-mainboard_hole_chamfer = 0.8;
+mainboard_hole_chamfer = 1;
 
 mainboard_hole_depth_delta = -1;
 
-psu_gap = 5;
+psu_gap = 6;
 
-psu_mount_screw = "#6-32";
+psu_mount_screw = "M3";
 
 /// dispatch / integration
 
@@ -390,7 +415,7 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
 
         tag("remove")
         right(8) // XXX fudge
-        fwd(2) // XXX fudge
+        fwd(4) // XXX fudge
         attach(BOTTOM, TOP, overlap=wall+$eps)
           linear_sweep(path, wall + 2*$eps);
 
@@ -425,7 +450,8 @@ function power_supply() = [
       [76,   4.1 ],
       [76,   36.1],
       [15.2, 37  ],
-      [ 4.4, 35.9],
+      // fairly redundant, plus flat head can interfere with inlet
+      // [ 5.4, 35.9],
     ]],
   ]],
 
@@ -526,7 +552,7 @@ module power_supply_cutout(
         at = struct_val(mount, "hole_at"),
         tol = struct_val(mount, "hole_tolerance"),
         screw = struct_val(mount, "screw_spec"),
-        head = "none", // TODO "flat" when possible
+        head = height > 2.4 ? "flat" : "none", // TODO fairly coupled to #6-32 particulars
       )
       down($eps)
       move_copies(at)
