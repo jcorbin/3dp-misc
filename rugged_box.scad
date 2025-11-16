@@ -1,3 +1,6 @@
+include <BOSL2/std.scad>;
+include <BOSL2/rounding.scad>;
+
 /* [Geometry Detail] */
 
 // Fragment minimum angle.
@@ -8,6 +11,21 @@ $fs = 0.2; // 0.05
 
 // Nudging value used when cutting out (differencing) solids, to avoid coincident face flicker.
 $eps = 0.01;
+
+/* [Part Parameters] */
+
+// General fit tolerance.
+tolerance = 0.4;
+
+// Minimum feature size.
+feature = 0.2;
+
+// Generic chamfer for things like bed interface and outside non-interface edges.
+chamfer = 0.5;
+
+// Generic rounding for anonymous edges.
+rounding = 1.5;
+
 
 /* [Part Selection] */
 
@@ -154,18 +172,11 @@ module main() {
   }
 
   else if (mode == 1) { // Bottom
-    // TODO for assembly
-    // translate([0,0,boxBottomHeightZMm])
-    BoxBottom(true);
-
+    BoxBottom();
   }
 
   else if (mode == 2) { // Top
-    // TODO for assembly
-    // translate([0,hingeRadiusMm*2,boxTopHeightZMm])
-    // translate([0,(boxLengthYMm+rimWidthMm+hingeRadiusMm+openingTolerance)*2, openingTolerance])
-    // rotate([-180,0,0])
-    BoxTop(true);
+    BoxTop();
   }
 
   else if (mode == 3) { // Latch
@@ -173,9 +184,6 @@ module main() {
   }
 
   else if (mode == 4) { // Gasket
-    // TODO for assembly?
-    // translate([0,0,boxBottomHeightZMm])
-    // translate([0,(boxLengthYMm*2)+(hingeRadiusMm*5)+(latchSupportRadius*5),-boxBottomHeightZMm])
     BoxGasketSealExtrude(gasketSlotWidth-(2*gasketTolerance),gasketSlotDepth+additionalGasketHeight,(gasketSlotDepth+additionalGasketHeight)/2);
   }
 
@@ -216,7 +224,7 @@ module main() {
   else if (mode == 50) { // Test Gasket
     translate([(-internalBoxWidthXMm/2)-(boxWallWidthMm*4), 0, rimHeightMm])
       difference() {
-        BoxBottom(true);
+        BoxBottom();
         translate([-boxWidthXMm/2, -boxLengthYMm/2, (-2*boxBottomHeightZMm)-rimHeightMm])
           cube([2*boxWidthXMm, 2*boxLengthYMm, 2*boxBottomHeightZMm]);
         translate([boxWallWidthMm*4, -boxLengthYMm/2, -boxBottomHeightZMm/2])
@@ -249,18 +257,114 @@ module main() {
 }
 
 module assembly() {
-  // TODO all the parts
+  translate([0,0,boxBottomHeightZMm])
+    BoxBottom();
+
+  translate([0,hingeRadiusMm*2,boxTopHeightZMm])
+  translate([0,(boxLengthYMm+rimWidthMm+hingeRadiusMm+openingTolerance)*2, openingTolerance])
+  rotate([-180,0,0])
+    BoxTop();
+
+  StandardLatch(latchSupportTotalWidth, latchSupportWidth, latchScrewPositionPct, boxTopHeightZMm, boxBottomHeightZMm, latchSupportRadius, latchToloerance);
+
+  translate([0,0,boxBottomHeightZMm])
+  translate([0,(boxLengthYMm*2)+(hingeRadiusMm*5)+(latchSupportRadius*5),-boxBottomHeightZMm])
+    BoxGasketSealExtrude(gasketSlotWidth-(2*gasketTolerance),gasketSlotDepth+additionalGasketHeight,(gasketSlotDepth+additionalGasketHeight)/2);
+
+  // TODO inserts
+  // TODO bolts
 }
 
 module dev() {
+
   // TODO wall profile
-  // TODO wall shell
-  // TODO wall bottom
-  // TODO wall top
-  // TODO wall latch
-  // TODO wall hinge
-  // TODO wall gasket
-  // TODO wall test parts
+  // Wall2D( ... )
+  //   wallThickness,  additionalWallThickness,  height,             isRimIncluded, isForRotation
+  //   boxWallWidthMm, 0,                        boxBottomHeightZMm, true,          true
+  //   boxWallWidthMm, (rimWidthMm*2),           caseSectionHeight,  false
+  //   boxWallWidthMm, (rimWidthMm*2),           caseSectionHeight,  false
+  //   boxWallWidthMm, supportRibThickness,      boxBottomHeightZMm, false
+  //   boxWallWidthMm, supportRibThickness,      boxBottomHeightZMm, false
+  //   boxWallWidthMm, supportRibThickness,      boxTopHeightZMm,    false
+  //   boxWallWidthMm, boxChamferRadiusMm,       height,             false,         false
+  //   boxWallWidthMm, boxChamferRadiusMm,       height,             false,         false
+  //   boxWallWidthMm, additionalShellThickness, height,             true,          true
+  //   boxWallWidthMm, additionalShellThickness, height,             true,          true
+  //   boxWallWidthMm, additionalShellThickness, height,             true,          true
+  //   boxWallWidthMm, additionalShellThickness, height,             true,          true
+  //   boxWallWidthMm, additionalShellThickness, height,             true,          false
+  //   boxWallWidthMm, additionalShellThickness, height,             true,          false
+  //   boxWallWidthMm, additionalShellThickness, height,             true,          false
+  //   boxWallWidthMm, additionalShellThickness, height,             true,          false
+  //   boxWallWidthMm, supportRibThickness,      height,             false,         false
+  //   boxWallWidthMm, supportRibThickness,      height,             false,         false
+
+  let (
+    thickness = boxWallWidthMm,
+    height = boxBottomHeightZMm,
+    chamfer = boxChamferRadiusMm,
+    chamfer_f = sqrt(2)*chamfer,
+
+    rim = [rimWidthMm, rimHeightMm],
+    overhang = rim.x-chamfer,
+
+    inner_h = height - thickness,
+    inner_c = thickness + rim.x - chamfer,
+    outer_c = chamfer - thickness,
+
+    // TODO isn't this just redundant with construction?
+
+    path = fwd(height, turtle([
+      "turn", 180,
+      "move", thickness,
+      // "move", chamfer,
+
+      "turn", -45,
+      "move", sqrt(2)*outer_c,
+      "turn", -45,
+
+      // "turn", -90,
+
+      "move", height - rim.y - chamfer/2 - outer_c,
+
+      "turn", 45,
+      "move", sqrt((chamfer/2)^2 + overhang^2),
+
+      "turn", -45,
+      "move", rim.y,
+
+      "turn", -90,
+      "move", rim.x + thickness,
+
+      "turn", -90,
+      "move", inner_h - inner_c,
+
+      "turn", 45,
+      "move", sqrt(2)*inner_c,
+
+    ])),
+
+  )
+  up(6)
+  color("red")
+    stroke(path, width=feature);
+    // polygon(path);
+
+  Wall2D(
+    boxWallWidthMm,     // wallThickness
+    0,                  // additionalWallThickness
+    boxBottomHeightZMm, // height
+    true,               // isRimIncluded
+    true                // isForRotation
+  );
+
+  // TODO shell
+  // TODO bottom
+  // TODO top
+  // TODO latch
+  // TODO hinge
+  // TODO gasket
+  // TODO test parts
 }
 
 // Calculated Variables
@@ -276,7 +380,7 @@ boxTopHeightZMm = internalBoxTopHeightZMm + boxWallWidthMm;
 // The height of the box bottom
 boxBottomHeightZMm = internalboxBottomHeightZMm + boxWallWidthMm;
 
-module BoxTop(isStdHinge) {
+module BoxTop(isStdHinge=true) {
     difference() {
         union() {
             rotate([180,0,0]) translate([0,-boxLengthYMm,-openingTolerance])
@@ -314,7 +418,7 @@ module BoxTop(isStdHinge) {
         }
 }
 
-module BoxBottom(isStdHinge) {
+module BoxBottom(isStdHinge=true) {
     difference() {
         union() {
             BoxShellBase(boxBottomHeightZMm);
@@ -528,8 +632,10 @@ module LatchMount(latchSupportTotalWidth, latchSupportWidth, latchScrewPositionP
                     translate([latchMountX+latchInsideWidthMm+latchToloerance+latchSupportWidth,boxLengthYMm+(latchSupportRadius*2)+rimWidthMm,-((latchScrewPositionPct/100)*caseSectionHeight)]) rotate([90,0,-90]) linear_extrude(latchSupportWidth) square([(latchSupportRadius*2)+rimWidthMm, ((latchScrewPositionPct/100)*caseSectionHeight)]);
 
                     // ribs
-                    translate([latchMountX-latchToloerance,boxLengthYMm-(boxChamferRadiusMm),0]) rotate([90,0,-90]) linear_extrude(latchSupportWidth) Wall2D(boxWallWidthMm, (rimWidthMm*2), caseSectionHeight, false);
-                    translate([latchMountX+latchInsideWidthMm+latchToloerance+latchSupportWidth,boxLengthYMm-(boxChamferRadiusMm),0]) rotate([90,0,-90]) linear_extrude(latchSupportWidth) Wall2D(boxWallWidthMm, (rimWidthMm*2), caseSectionHeight, false);
+                    translate([latchMountX-latchToloerance,boxLengthYMm-(boxChamferRadiusMm),0]) rotate([90,0,-90]) linear_extrude(latchSupportWidth)
+                      Wall2D(boxWallWidthMm, (rimWidthMm*2), caseSectionHeight, false);
+                    translate([latchMountX+latchInsideWidthMm+latchToloerance+latchSupportWidth,boxLengthYMm-(boxChamferRadiusMm),0]) rotate([90,0,-90]) linear_extrude(latchSupportWidth)
+                      Wall2D(boxWallWidthMm, (rimWidthMm*2), caseSectionHeight, false);
 
                     // Attach the hinge to the top
                     adjustment = sqrt((latchSupportRadius^2)/2);
@@ -591,8 +697,10 @@ module BotomStandardHinge() {
 
 
                     // ribs
-                    translate([hingeX-hingeToleranceMm,boxLengthYMm-(boxChamferRadiusMm+rimWidthMm),0]) rotate([90,0,-90]) linear_extrude(hingeOutsideWidth) Wall2D(boxWallWidthMm, supportRibThickness, boxBottomHeightZMm, false);
-                    translate([hingeX+hingeInsideWidthMm+hingeToleranceMm+hingeOutsideWidth,boxLengthYMm-(boxChamferRadiusMm+rimWidthMm),0]) rotate([90,0,-90]) linear_extrude(hingeOutsideWidth) Wall2D(boxWallWidthMm, supportRibThickness, boxBottomHeightZMm, false);
+                    translate([hingeX-hingeToleranceMm,boxLengthYMm-(boxChamferRadiusMm+rimWidthMm),0]) rotate([90,0,-90]) linear_extrude(hingeOutsideWidth)
+                      Wall2D(boxWallWidthMm, supportRibThickness, boxBottomHeightZMm, false);
+                    translate([hingeX+hingeInsideWidthMm+hingeToleranceMm+hingeOutsideWidth,boxLengthYMm-(boxChamferRadiusMm+rimWidthMm),0]) rotate([90,0,-90]) linear_extrude(hingeOutsideWidth)
+                      Wall2D(boxWallWidthMm, supportRibThickness, boxBottomHeightZMm, false);
 
                     // Attach the hinge to the top
                     adjustment = sqrt((hingeRadiusMm^2)/2);
@@ -650,7 +758,8 @@ module TopStandardHinge() {
                         cylinder(hingeInsideWidthMm,hingeRadiusMm,hingeRadiusMm, $fn=hingePolyLvl);
 
                     // support ribs
-                    translate([0,boxLengthYMm-2,openingTolerance]) rotate([180,0,0]) translate([hingeX,boxChamferRadiusMm,0]) rotate([90,0,90]) linear_extrude(hingeInsideWidthMm) Wall2D(boxWallWidthMm, supportRibThickness, boxTopHeightZMm, false);
+                    translate([0,boxLengthYMm-2,openingTolerance]) rotate([180,0,0]) translate([hingeX,boxChamferRadiusMm,0]) rotate([90,0,90]) linear_extrude(hingeInsideWidthMm)
+                      Wall2D(boxWallWidthMm, supportRibThickness, boxTopHeightZMm, false);
 
                     // Attach the hinge to the top
                     adjustment = sqrt((hingeRadiusMm^2)/2);
@@ -708,24 +817,36 @@ module BoxInsert(width, height, separatorWidth) {
     //translate([boxWidthXMm/2, boxWallWidthMm, -(boxBottomHeightZMm-boxWallWidthMm)])
     difference() {
         cube([separatorWidth,width-(2*boxWallWidthMm), height-boxWallWidthMm]);
-        translate([-0.1,(boxChamferRadiusMm-boxWallWidthMm),height-boxWallWidthMm]) rotate([90,0,90]) linear_extrude(separatorWidth+0.2) Wall2D(boxWallWidthMm, boxChamferRadiusMm, height, false, false);
-        translate([separatorWidth+0.1,width-(2*boxWallWidthMm),0]) rotate([0,0,180]) translate([0,(boxChamferRadiusMm-boxWallWidthMm),height-boxWallWidthMm]) rotate([90,0,90]) linear_extrude(separatorWidth+0.2) Wall2D(boxWallWidthMm, boxChamferRadiusMm, height, false, false);
+        translate([-0.1,(boxChamferRadiusMm-boxWallWidthMm),height-boxWallWidthMm]) rotate([90,0,90]) linear_extrude(separatorWidth+0.2)
+          Wall2D(boxWallWidthMm, boxChamferRadiusMm, height, false, false);
+        translate([separatorWidth+0.1,width-(2*boxWallWidthMm),0]) rotate([0,0,180]) translate([0,(boxChamferRadiusMm-boxWallWidthMm),height-boxWallWidthMm]) rotate([90,0,90]) linear_extrude(separatorWidth+0.2)
+          Wall2D(boxWallWidthMm, boxChamferRadiusMm, height, false, false);
     }
 }
 
 module BoxShellBase(height, additionalShellThickness = 0) {
     // Bottom
     translate([boxChamferRadiusMm,boxChamferRadiusMm,-height]) cube([boxWidthXMm-(2*boxChamferRadiusMm), boxLengthYMm-(2*boxChamferRadiusMm), boxWallWidthMm]);
+
     // Corners
-    translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate_extrude(angle = 90, $fn=polyLvl) Wall2D(boxWallWidthMm, additionalShellThickness, height, true, true);
-    translate([boxWidthXMm,0,0]) rotate([0,0,90]) translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate_extrude(angle = 90, $fn=polyLvl) Wall2D(boxWallWidthMm, additionalShellThickness, height, true, true);
-    translate([boxWidthXMm,boxLengthYMm,0]) rotate([0,0,180]) translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate_extrude(angle = 90, $fn=polyLvl) Wall2D(boxWallWidthMm, additionalShellThickness, height, true, true);
-    translate([0,boxLengthYMm,0]) rotate([0,0,270]) translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate_extrude(angle = 90, $fn=polyLvl) Wall2D(boxWallWidthMm, additionalShellThickness, height, true, true);
+    translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate_extrude(angle = 90, $fn=polyLvl)
+      Wall2D(boxWallWidthMm, additionalShellThickness, height, true, true);
+    translate([boxWidthXMm,0,0]) rotate([0,0,90]) translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate_extrude(angle = 90, $fn=polyLvl)
+      Wall2D(boxWallWidthMm, additionalShellThickness, height, true, true);
+    translate([boxWidthXMm,boxLengthYMm,0]) rotate([0,0,180]) translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate_extrude(angle = 90, $fn=polyLvl)
+      Wall2D(boxWallWidthMm, additionalShellThickness, height, true, true);
+    translate([0,boxLengthYMm,0]) rotate([0,0,270]) translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate_extrude(angle = 90, $fn=polyLvl)
+      Wall2D(boxWallWidthMm, additionalShellThickness, height, true, true);
+
     // Sides
-    translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate([90,0,90]) linear_extrude(boxWidthXMm-(2*boxChamferRadiusMm)) Wall2D(boxWallWidthMm, additionalShellThickness, height, true, false);
-    translate([boxWidthXMm-boxChamferRadiusMm,boxLengthYMm-boxChamferRadiusMm]) rotate([90,0,270]) linear_extrude(boxWidthXMm-(2*boxChamferRadiusMm)) Wall2D(boxWallWidthMm, additionalShellThickness, height, true, false);
-    translate([boxWidthXMm-boxChamferRadiusMm,boxChamferRadiusMm]) rotate([90,0,180]) linear_extrude(boxLengthYMm-(2*boxChamferRadiusMm)) Wall2D(boxWallWidthMm, additionalShellThickness, height, true, false);
-    translate([boxChamferRadiusMm,boxLengthYMm-boxChamferRadiusMm]) rotate([90,0,0]) linear_extrude(boxLengthYMm-(2*boxChamferRadiusMm)) Wall2D(boxWallWidthMm, additionalShellThickness, height, true, false);
+    translate([boxChamferRadiusMm,boxChamferRadiusMm]) rotate([90,0,90]) linear_extrude(boxWidthXMm-(2*boxChamferRadiusMm))
+      Wall2D(boxWallWidthMm, additionalShellThickness, height, true, false);
+    translate([boxWidthXMm-boxChamferRadiusMm,boxLengthYMm-boxChamferRadiusMm]) rotate([90,0,270]) linear_extrude(boxWidthXMm-(2*boxChamferRadiusMm))
+      Wall2D(boxWallWidthMm, additionalShellThickness, height, true, false);
+    translate([boxWidthXMm-boxChamferRadiusMm,boxChamferRadiusMm]) rotate([90,0,180]) linear_extrude(boxLengthYMm-(2*boxChamferRadiusMm))
+      Wall2D(boxWallWidthMm, additionalShellThickness, height, true, false);
+    translate([boxChamferRadiusMm,boxLengthYMm-boxChamferRadiusMm]) rotate([90,0,0]) linear_extrude(boxLengthYMm-(2*boxChamferRadiusMm))
+      Wall2D(boxWallWidthMm, additionalShellThickness, height, true, false);
 
     // Add side ribs
     for(x = [1:numSideSupportRibs]) {
@@ -736,75 +857,106 @@ module BoxShellBase(height, additionalShellThickness = 0) {
                         ? 0
                         : ribCenterOffsetMm;
 
-        translate([boxChamferRadiusMm,(x*(((boxLengthYMm-(numSideSupportRibs*supportRibWidth))/(numSideSupportRibs+1))+supportRibWidth))+actualRibCenterOffsetMm,0]) rotate([90,0,0]) linear_extrude(supportRibWidth) Wall2D(boxWallWidthMm, supportRibThickness, height, false, false);
-        translate([boxWidthXMm-boxChamferRadiusMm,(x*(((boxLengthYMm-(numSideSupportRibs*supportRibWidth))/(numSideSupportRibs+1))+supportRibWidth))-supportRibWidth+actualRibCenterOffsetMm,0]) rotate([90,0,180]) linear_extrude(supportRibWidth) Wall2D(boxWallWidthMm, supportRibThickness, height, false, false);
+        translate([boxChamferRadiusMm,(x*(((boxLengthYMm-(numSideSupportRibs*supportRibWidth))/(numSideSupportRibs+1))+supportRibWidth))+actualRibCenterOffsetMm,0]) rotate([90,0,0]) linear_extrude(supportRibWidth)
+          Wall2D(boxWallWidthMm, supportRibThickness, height, false, false);
+        translate([boxWidthXMm-boxChamferRadiusMm,(x*(((boxLengthYMm-(numSideSupportRibs*supportRibWidth))/(numSideSupportRibs+1))+supportRibWidth))-supportRibWidth+actualRibCenterOffsetMm,0]) rotate([90,0,180]) linear_extrude(supportRibWidth)
+          Wall2D(boxWallWidthMm, supportRibThickness, height, false, false);
     }
 
 }
 
-// TODO: modify this so the bottom corner angle always starts at 60+ degrees.  be careful here so we can honor the poly counts and still connect correctly to the sides and bottom.
 module Wall2D(wallThickness, additionalWallThickness, height, isRimIncluded, isForRotation) {
-
-    floorChamferRadius = sqrt(boxChamferRadiusMm^2+boxChamferRadiusMm^2);
-    chamferTrimAdj = sqrt(((floorChamferRadius-wallThickness)^2)/2);
-
-    //floorAddition = sqrt(floorChamferRadius^2 - boxChamferRadiusMm^2);
-    //floorAddition = boxChamferRadiusMm/2;
-    floorAddition = (boxChamferRadiusMm*2)-floorChamferRadius;
-
-    additionCount = ceil(additionalWallThickness/wallThickness);
+  // TODO: modify this so the bottom corner angle always starts at 60+ degrees.
+  //       be careful here so we can honor the poly counts and still connect
+  //       correctly to the sides and bottom.
 
     difference() {
+
         // make it wider if asked for
-        for(cnt = [0:additionCount]) {
-            additionXAdj =
-                (cnt == additionCount && ((additionalWallThickness % wallThickness) != 0))
-                    ? ((cnt-1)*wallThickness)+(additionalWallThickness % wallThickness)
-                    : cnt*wallThickness;
+        additionCount = ceil(additionalWallThickness/wallThickness);
+        left(boxChamferRadiusMm)
+        for (cnt = [0:additionCount]) {
+            left(
+              let (
+                rem = additionalWallThickness % wallThickness,
+                ex = rem == 0 ? wallThickness : rem,
+                adj = (cnt-1)*wallThickness + ex,
+              )
+              adj
+            )
 
-            translate([-boxChamferRadiusMm-(additionXAdj),0])
                 union() {
-                    // Add the rim
-                    if(isRimIncluded) {
-                        rimChamferPositionAdj = rimWidthMm * tan(67.5);
-                        rimChamferRadius = sqrt(rimChamferPositionAdj^2+rimChamferPositionAdj^2);
 
+                  floorChamferRadius = sqrt(boxChamferRadiusMm^2+boxChamferRadiusMm^2);
+                  chamferTrimAdj = sqrt(((floorChamferRadius-wallThickness)^2)/2);
 
-                        difference() {
-                            // 45 degree angle chamfer
-                            translate([0,-rimHeightMm]) circle(r = rimWidthMm, $fn=4);
-                            translate([-rimWidthMm-.1,-rimHeightMm]) square([(rimWidthMm*2)+.2, rimWidthMm+.1]);
-                            translate([0,-rimHeightMm-rimWidthMm-.1]) square([(rimWidthMm*2)+.2, (rimWidthMm*2)+.2]);
+                  //floorAddition = sqrt(floorChamferRadius^2 - boxChamferRadiusMm^2);
+                  //floorAddition = boxChamferRadiusMm/2;
+                  floorAddition = (boxChamferRadiusMm*2)-floorChamferRadius;
 
-                            // This is the chamfer that allows the poly level to change.  No longer used... didn't like it
-                            //translate([rimChamferPositionAdj,-rimHeightMm]) circle(r = rimChamferRadius, $fn=polyLvl*2);
-                            //translate([rimChamferPositionAdj-rimChamferRadius-.1,-0]) square([(rimChamferRadius*2)+.2, rimChamferRadius+.1]);
-                            //translate([0,-(rimChamferRadius*2)-.2]) square([(rimChamferRadius*2)+.2, (rimChamferRadius*2)+.2]);
-                        }
+                  // Add the rim
+                  if(isRimIncluded) {
 
-                        translate([-rimWidthMm,-rimHeightMm]) square([rimWidthMm,rimHeightMm]);
+                    // 45 degree angle chamfer
+                    difference() {
+                      // Fill(et)
+                      translate([0,-rimHeightMm])
+                        circle(r = rimWidthMm, $fn=4);
+                      // Overhang cutaway
+                      translate([-rimWidthMm-.1,-rimHeightMm])
+                        square([(rimWidthMm*2)+.2, rimWidthMm+.1]);
+                      // Body cutaway
+                      translate([0,-rimHeightMm-rimWidthMm-.1])
+                        square([(rimWidthMm*2)+.2, (rimWidthMm*2)+.2]);
+
+                      // This is the chamfer that allows the poly level to change.  No longer used... didn't like it
+                      // rimChamferPositionAdj = rimWidthMm * tan(67.5);
+                      // rimChamferRadius = sqrt(rimChamferPositionAdj^2+rimChamferPositionAdj^2);
+                      // translate([rimChamferPositionAdj,-rimHeightMm])
+                      //   circle(r = rimChamferRadius, $fn=polyLvl*2);
+                      // translate([rimChamferPositionAdj-rimChamferRadius-.1,-0])
+                      //   square([(rimChamferRadius*2)+.2, rimChamferRadius+.1]);
+                      // translate([0,-(rimChamferRadius*2)-.2])
+                      //   square([(rimChamferRadius*2)+.2, (rimChamferRadius*2)+.2]);
                     }
 
-                    translate([0,-height + boxChamferRadiusMm]) square([wallThickness, height - boxChamferRadiusMm]);
+                    // Rim Tip
+                    translate([-rimWidthMm,-rimHeightMm])
+                      square([rimWidthMm,rimHeightMm]);
+                  }
 
-                    //translate([boxChamferRadiusMm-floorAddition, -height]) square([floorAddition, wallThickness]);
-                    translate([boxChamferRadiusMm-floorAddition, -height]) square([floorAddition, wallThickness]);
+                  // Body
+                  translate([0,-height + boxChamferRadiusMm])
+                    square([wallThickness, height - boxChamferRadiusMm]);
 
-                    translate([floorChamferRadius, -height + boxChamferRadiusMm])
-                        difference() {
-                            translate([0,0]) circle(r = floorChamferRadius, $fn = polyLvl*2);
-                            translate([0,0]) circle(r = (floorChamferRadius-wallThickness), $fn = polyLvl*2);
-                            translate([-floorChamferRadius - .1,0]) square([(floorChamferRadius*2)+.2, floorChamferRadius + .1]);
-                            if(wallThickness <= boxChamferRadiusMm) {
-                                translate([-chamferTrimAdj,-floorChamferRadius - .1]) square([floorChamferRadius + chamferTrimAdj + .1, (floorChamferRadius*2)+.2]);
-                            }
-                            translate([-floorChamferRadius - .1,-(boxChamferRadiusMm*2)]) square([(floorChamferRadius*2)+.2, boxChamferRadiusMm]);
-                        };
+                  // Tip
+                  translate([boxChamferRadiusMm-floorAddition, -height])
+                    square([floorAddition, wallThickness]);
+
+                  // Transition from body -> Tip
+                  translate([floorChamferRadius, -height + boxChamferRadiusMm])
+                    difference() {
+                      translate([0,0])
+                        circle(r = floorChamferRadius, $fn = polyLvl*2);
+                      translate([0,0])
+                        circle(r = (floorChamferRadius-wallThickness), $fn = polyLvl*2);
+                      translate([-floorChamferRadius - .1,0])
+                        square([(floorChamferRadius*2)+.2, floorChamferRadius + .1]);
+                      if(wallThickness <= boxChamferRadiusMm) {
+                        translate([-chamferTrimAdj,-floorChamferRadius - .1])
+                          square([floorChamferRadius + chamferTrimAdj + .1, (floorChamferRadius*2)+.2]);
+                      }
+                      translate([-floorChamferRadius - .1,-(boxChamferRadiusMm*2)])
+                        square([(floorChamferRadius*2)+.2, boxChamferRadiusMm]);
+                    };
+
                 }
+
         }
 
         // NOT sure what this was for :-/
-        //translate([(-wallThickness-additionalWallThickness)+chamferTrimAdj,-height]) square([(wallThickness+additionalWallThickness)-chamferTrimAdj, wallThickness]);
+        // translate([(-wallThickness-additionalWallThickness)+chamferTrimAdj,-height])
+        //   square([(wallThickness+additionalWallThickness)-chamferTrimAdj, wallThickness]);
 
         // If we are rotating, we need to cut off any execess floor or wall on the other side of the y axis
         if(isForRotation) {
@@ -870,3 +1022,5 @@ module Wall2D(wallThickness, additionalWallThickness, height, isRimIncluded, isF
 //                                 polygon([[footInsertToleranceMm,0],[(footInsertToleranceMm*2),(feetInsertDepth*2)+boxGapMm],[feetwidthMm-(footInsertToleranceMm*2),(    feetInsertDepth*2)+boxGapMm],[feetwidthMm-footInsertToleranceMm,0]]);
 //         }
 //     }
+
+main();
