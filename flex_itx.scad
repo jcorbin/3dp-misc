@@ -5,6 +5,16 @@ include <BOSL2/walls.scad>;
 
 /***
 
+# second assembly test notes
+
+- [X] fixed psu cutout xflip... was a stupid shell integration problem, the
+  cutout pattern itself was fine
+- [X] decremented io shield window Y fudge by 2.5
+- [X] added wifi antenna mount posts
+- [ ] print quality: front-right corner warped up
+  - design in mouse ears?
+  - at least add slicer ears with next print
+
 # first assembly test notes
 
 - [X] increased mainboard under-clearance from 8 to 12
@@ -14,11 +24,11 @@ include <BOSL2/walls.scad>;
 - ... made psu cutout support flat head with thick engough wall
 - [X] deleted bottom pus mount hole, since it interferes with inlet when
   flat-headed
-
-- [ ] io shield window was not big enough, had to prune corner
+- [X] increase inner Y+ margin and added tolerance to io shield window
 
 # TODO
 
+- feature: front usb-c sockets
 - feature: power button placement; other front panel features?
 - feature: usb ports from headers
 - feature: wifi antenna placement
@@ -84,7 +94,7 @@ $support_preview = false;
 
 shell_inner_margin = [
   [2, 2 + 46],
-  [2, 2],
+  [2, 10],
   [1, 1]
 ];
 
@@ -159,6 +169,7 @@ module dev() {
   // power_supply()
   // compute_io_bracket(1)
   // power_supply_bracket()
+  // antenna_mount()
   shell()
   // assembly()
   {
@@ -345,7 +356,7 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
       restore_part(mainboard_part)
       attach(LEFT, BOTTOM)
         right(1.2 + 2 + 3) // TODO un-fudge
-        fwd(18) // TODO un-fudge
+        fwd(15.5) // TODO un-fudge
         down(1.5*wall)
         compute_io_cutout(2*wall)
         support_wall(
@@ -359,7 +370,6 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
       // psu window
       restore_part(psu_part)
       attach(LEFT, TOP, overlap=wall + $eps)
-        xflip()
         zrot(-90)
         power_supply_cutout(wall + 2*$eps)
           attach_part("inlet") {
@@ -404,7 +414,6 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
 
       // cutout floor
       restore_part(mainboard_part) {
-
         path = round_corners(
           xflip(offset([
             for (h = mount_holes)
@@ -412,16 +421,22 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
           ], r=-4)),
           method="smooth", joint=12,
         );
-
         tag("remove")
         right(8) // XXX fudge
         fwd(4) // XXX fudge
         attach(BOTTOM, TOP, overlap=wall+$eps)
           linear_sweep(path, wall + 2*$eps);
-
-
       }
 
+
+      // antenna mount posts
+      tag("keep")
+      back(35)
+      ycopies(n=2, spacing=60)
+      left(3*wall)
+      up(wall - $eps)
+      position(BOTTOM+RIGHT)
+        antenna_mount(foot_h=$eps, anchor=BOTTOM+FWD, spin=90);
 
       // TODO fan duct port in top half
 
@@ -430,6 +445,51 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
       // TODO latches
 
     }
+
+    children();
+  }
+}
+
+module antenna_mount(
+  foot_h = 1,
+  anchor = CENTER, spin = 0, orient = UP,
+) {
+  clearance = 8;
+  pitch = 44;
+  post_chamfer = 1;
+
+  hole_d = 2.8;
+  post_d = hole_d + 2*wall;
+
+  post_h = clearance;
+  hole_h = post_h + $eps;
+
+  // TODO very similar to the mainboard mount posts?
+
+  size = [
+    post_d + 2*post_chamfer + pitch,
+    post_d + 2*post_chamfer,
+    post_h
+  ];
+
+  attachable(anchor, spin, orient, size=size) {
+
+    foot_size = [
+        size.x,
+        size.y,
+        foot_h];
+
+    down(foot_h/2)
+    down(post_h/2)
+    cuboid(foot_size, rounding=foot_size.y/2, edges="Z")
+    xcopies(spacing=pitch, n=2)
+      attach(TOP, BOTTOM, overlap=$eps)
+      tag_scope("antenna_mount")
+      diff()
+      cyl(d=post_d, h=post_h+$eps, chamfer1=-post_chamfer)
+      tag("remove")
+      attach(TOP, BOTTOM, overlap=hole_h)
+      cyl(d=hole_d, h=hole_h + $eps, chamfer2=-post_chamfer);
 
     children();
   }
@@ -758,18 +818,19 @@ module compute_io_bracket(
 
 module compute_io_cutout(
   height,
+  tol = tolerance,
   anchor = CENTER, spin = 0, orient = UP,
 ) {
   mainboard = compute();
   io_shield = struct_val(struct_val(mainboard, "components"), "io_shield");
   io_size = struct_val(io_shield, "size");
-  size = [io_size.y, io_size.z, height];
-  // echo(str( "cutout size:", size));
-
+  size = [
+    io_size.y + 2*tol,
+    io_size.z + 2*tol,
+    height];
   default_tag("remove")
   attachable(anchor, spin, orient, size=size) {
     cuboid(size); // TODO chamfer corners?
-
     children();
   }
 }
@@ -982,66 +1043,6 @@ module support_wall(
     children();
   }
 }
-
-function ngon_max_bottom(path) = let (
-  bounds = pointlist_bounds(path),
-) [
-  for (pt = path)
-    pt.y == bounds[0].y
-      ? [pt.x < 0 ? bounds[0].x : bounds[1].x, pt.y]
-      : pt
-];
-
-function cutaway_shape(w, h, shape) = let (
-  cut_bounds = pointlist_bounds(shape),
-  cut_x = cut_bounds[1].x + w,
-  cut_y = h,
-  bot_y = cut_bounds[0].y,
-  bot_x = cut_bounds[0].x,
-  top_y = cut_bounds[1].y,
-  slant_from = [bot_x, top_y],
-  max_slant_to = [cut_x, cut_y + $eps],
-  cut_out = [cut_x, bot_y - $eps],
-
-  basic = [
-    cut_out,
-    [bot_x - chamfer - $eps, bot_y - $eps],
-    [bot_x, bot_y+ chamfer],
-    slant_from,
-    line_intersection(
-      [ slant_from, slant_from + [ 1, 1 ] ],
-      [ cut_out, max_slant_to ],
-    ),
-  ],
-  out = round_corners(basic, method="smooth", joint=[0, 0, 0, 2*chamfer, 0]),
-) out;
-
-function interlock_profile(
-  n=interlock_ngon,
-  d=interlock_d,
-  tolerance=0,
-  chamfer=interlock_chamfer,
-  sharp=false,
-  open=false,
-) = let (
-  points = n % 2 == 0
-    ? regular_ngon(n=n, d=d + tolerance, align_side=[0, -1])
-    : regular_ngon(n=n, d=d + tolerance, align_tip=[0, 1]),
-  chamfer_points = len(points)-2,
-  chamfers = n % 2 == 0
-    ? concat(
-      [0, 0],
-      repeat(chamfer, floor(chamfer_points/2)-1),
-      repeat(sharp ? 0 : chamfer, 2),
-      repeat(chamfer, floor(chamfer_points/2)-1),
-    )
-    : concat(
-      [sharp ? 0 : chamfer],
-      repeat(chamfer, floor(chamfer_points/2)),
-      [0, 0],
-      repeat(chamfer, floor(chamfer_points/2))
-    ),
-) round_corners(open ? ngon_max_bottom(points) : points, method="smooth", joint=chamfers);
 
 module preview_cut(v=BACK, s=10000) {
   if ($preview && preview_cut)
