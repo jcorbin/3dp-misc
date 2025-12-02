@@ -44,15 +44,15 @@ mode = 100; // [0:Hook, 100:Dev]
 
 mount_size = [23, 19];
 
-travel = 50;
+travel = 25;
 
 travel_ang = 30;
 
-loop_r = 25;
+loop_r = 15;
 
 loop_ang = 180;
 
-hook_width = 5;
+hook_width = 3.5;
 
 /// dispatch / integration
 
