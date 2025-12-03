@@ -28,12 +28,6 @@ chamfer = 1.5;
 // Generic rounding for anonymous edges.
 rounding = 1.5;
 
-wall = 2.0;
-
-/* [Part Selection] */
-
-mode = 100; // [0:Hook, 100:Dev]
-
 /* [Part-iculars] */
 
 // measurements
@@ -42,32 +36,31 @@ mode = 100; // [0:Hook, 100:Dev]
 // - front height 18.8
 // - rear height 10
 
+// Size of the C-shaped mounting hook, X is span front-to-back, Y is height of the C's "legs".
 mount_size = [23, 19];
 
+// Travel length between the C-shape mount hook and the curved loop.
 travel = 25;
 
+// Angle of travel to create an offset between mount hook and loop.
 travel_ang = 30;
 
+// Radius of the end loop.
 loop_r = 15;
 
+// Arc-angle of the end loop.
 loop_ang = 180;
 
+// Extrusion width of the hook; i.e. how many layers wide will be the hook.
 hook_width = 3.5;
+
+// Wall thickness of the from inner profile to outer profile.
+wall = 2.0;
 
 /// dispatch / integration
 
-module main() {
-  if (mode == 0) {
-  }
-  else if (mode == 100) {
-    dev();
-  }
-}
-
 function hook_profile() = let (
   mount_span = mount_size.x + 2*tolerance,
-  // travel_span = sin(travel_ang)*travel,
-  // loop_span = TODO arc width how
   path = turtle([
     "turn", -90,
 
@@ -88,99 +81,22 @@ function hook_profile() = let (
     mount_size.y + (bnds[0].y - bnds[1].y)/2,
   ], path);
 
+prof = hook_profile();
+inner = offset(prof, delta=-wall/2);
+outer = offset(prof, delta=wall/2);
+hook_shape = concat(inner, reverse(outer));
+
 module dev() {
-
-  prof = hook_profile();
-  inner = offset(prof, delta=-wall/2);
-  outer = offset(prof, delta=wall/2);
-  hook_shape = concat(inner, reverse(outer));
-
-  // echo(str("prof", prof));
-  // color("red") stroke(prof, width=feature);
-  // color("blue") stroke(outer, width=feature);
-  // color("green") stroke(inner, width=feature);
-
+  echo(str("prof", prof));
+  color("red") stroke(prof, width=feature);
+  color("blue") stroke(outer, width=feature);
+  color("green") stroke(inner, width=feature);
   // color("blue") polygon(hook_shape);
-
-  linear_sweep(hook_shape, hook_width);
-
-  // color("yellow") polygon(struct_val(prof, "smooth_path"));
-
-  // TODO profile
-  // TODO extrude
-  // TODO chamfer bottom
-
-  // body(15, 6.5)
-  // // glyph()
-  // {
-  //   // %show_anchors(std=false);
-  //   // attach([
-  //   //   "mount_up_0",
-  //   //   "mount_up_1",
-  //   //   "mount_up_2",
-  //   //   "mount_up_3",
-  //   // ]) anchor_arrow();
-  //   // zrot(-45)
-  //   // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-  //   // %cube($parent_size, center=true);
-  // }
-
-  // echo(str("prof", prof));
-  // color("red")
-  //   stroke(prof, width=feature);
-  //   // down(.2) polygon(struct_val(prof, "basic_path"));
-  // // color("blue") down(.1) polygon(struct_val(prof, "cut_path"));
-  // // color("yellow") polygon(struct_val(prof, "smooth_path"));
-
-  // shape = XXX();
-  // if ($preview) {
-  //   stroke(shape, width=feature);
-  // } else {
-  //   linear_sweep(shape, 0.4);
-  // }
-  // // color("red") 
-  //   // polygon(shape);
-  //   // debug_region(shape);
-
-  // module XXX(anchor = CENTER, spin = 0, orient = UP) {
-  //   size = [XXX.x, XXX.z, XXX.y];
-  //   attachable(anchor, spin, orient, size=size) {
-  //     xrot(-90)
-  //     down(size.z/2)
-  //     back(size.y/2)
-  //     left(size.x/2)
-  //       import("XXX.stl");
-  //     children();
-  //   }
-  // }
-
-  // module XXX(anchor = CENTER, spin = 0, orient = UP) {
-  //   size = [XXX.x, XXX.z, XXX.y];
-  //   attachable(anchor, spin, orient, size=size) {
-  //     XXX();
-  //     children();
-  //   }
-  // }
-
 }
 
-// like cumsum, but only sums "after" each ; therefore starts with 0, and final
-// value is dropped.
-function postsum(v) =
-  v==[] ? [] :
-  assert(is_consistent(v), "\nThe input is not consistent." )
-  [for (a = 0, i = 0; i < len(v); a = a+v[i], i = i+1) a];
-
-function scalar_vec2(v, dflt) =
-  is_undef(v)? undef :
-  is_list(v)? [for (i=[0:1]) default(v[i], default(dflt, 0))] :
-  !is_undef(dflt)? [v,dflt] : [v,v];
-
-module preview_cut(v=BACK, s=10000) {
-  if ($preview && preview_cut)
-    half_of(v=v, s=s) children();
-  else
-    children();
+module main() {
+  linear_sweep(hook_shape, hook_width);
 }
 
 main();
+// dev();
