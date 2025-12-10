@@ -1,26 +1,39 @@
 # TODO
 
-- collect/test bottle openers
 - collect/test key holders
 - collect/test zipper pulls
 - collect/test bottle holders w/ wheelchair attach
 
+# WIP
+
+- collect/test bottle openers
+- evaluate can openers
+
+# Bottle Holder
+
+# Bottle Opener
+
+1. <https://www.thingiverse.com/thing:2801157>
+  by makersmakingchange
+
+2. <https://thangs.com/designer/coolguyprint/3d-model/Bottle%20Opener%20%28Customisable%29%20V2-1041133>
+  by coolguyprint
+
+3. <https://thangs.com/designer/CHEP/3d-model/Large%20Water%20Cooler%20Bottle%20Opener-1149864>
+  by CHEP
+
 # Ring Pull Can Opener 
 
 1. <https://www.myminifactory.com/object/3d-print-ring-pull-can-opener-5732>
-  `Ring-Pull-Can-Opener.stl`
   by Luca Parmegiani
 
 2. <https://thangs.com/designer/BUDS%203D/3d-model/Opener%2CSealer%20Pop%2CBeer%20Cans.stl-853379>
-  `Opener,Sealer Pop,Beer Cans.stl`
-  by BUDS_3D
+  by BUDS3D
 
 3. <https://thangs.com/designer/AbenAlbert/3d-model/Soda%2Bcan%2Bopener.3mf-1145959>
-  `Soda+can+opener.3mf`
   by AbenAlbert
 
 4. <https://www.thingiverse.com/thing:5794820>
-  `Can ring opener - 5794820.zip'`
   by Periechild
 
 # 2025-12-10
