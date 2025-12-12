@@ -1,13 +1,22 @@
 # TODO
 
 - collect/test key holders
-- collect/test zipper pulls
 - collect/test bottle holders w/ wheelchair attach
 
 # WIP
 
-- collect/test bottle openers
-- evaluate can openers
+- zipper pulls
+
+# Zipper Pulls
+
+1. <https://www.thingiverse.com/thing:1103082>
+  by miginv
+
+2. <https://thangs.com/designer/sskki/3d-model/Rapid%20Access%20Zipper%20Pull%20Tab-1006760>
+  by sskki
+
+3. <https://thangs.com/designer/seanauff/3d-model/Zipper%20pull-74769>
+  by seanauff
 
 # Bottle Holder
 
@@ -36,6 +45,10 @@
 4. <https://www.thingiverse.com/thing:5794820>
   by Periechild
 
+# 2025-12-12
+
+Found a few zipper pull models, printed a first assortment.
+
 # 2025-12-10
 
 Collected and did a first test print of 4 can openers.
@@ -58,3 +71,5 @@ Chat wrt next steps:
 > **Mellie**
 > they also have a dragon (that if Josh prints, I would paint!)
 > <https://thangs.com/designer/Kekreations/3d-model/dragon%20wheelchair%20cup%20phone%20holder-1233403>
+
+Also printed some bottle openers.
