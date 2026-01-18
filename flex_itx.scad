@@ -427,21 +427,21 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
               chamfer2=-mainboard_hole_chamfer);
       }
 
-      // cutout floor
-      restore_part(mainboard_part) {
-        path = round_corners(
-          xflip(offset([
-            for (h = mount_holes)
-            struct_val(h, "offset")
-          ], r=-4)),
-          method="smooth", joint=12,
-        );
-        // tag("remove")
-        right(8) // XXX fudge
-        fwd(4) // XXX fudge
-        attach(BOTTOM, TOP, overlap=wall+$eps)
-          !linear_sweep(path, 200);
-      }
+      // // cutout floor
+      // restore_part(mainboard_part) {
+      //   path = round_corners(
+      //     xflip(offset([
+      //       for (h = mount_holes)
+      //       struct_val(h, "offset")
+      //     ], r=-4)),
+      //     method="smooth", joint=12,
+      //   );
+      //   // tag("remove")
+      //   right(8) // XXX fudge
+      //   fwd(4) // XXX fudge
+      //   attach(BOTTOM, TOP, overlap=wall+$eps)
+      //     !linear_sweep(path, 200);
+      // }
 
       // antenna mount posts
       tag("keep")
