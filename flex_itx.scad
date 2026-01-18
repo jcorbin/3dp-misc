@@ -5,6 +5,16 @@ include <BOSL2/walls.scad>;
 
 /***
 
+# TODO
+
+- feature: front usb-c sockets
+- feature: power button placement; other front panel features?
+- feature: usb ports from headers
+- feature: wifi antenna placement
+- feature: audio header usage
+- feature: cable retention features in the front-void
+- feature: psu rear hold-down
+
 # second assembly test notes
 
 - [X] fixed psu cutout xflip... was a stupid shell integration problem, the
@@ -25,16 +35,6 @@ include <BOSL2/walls.scad>;
 - [X] deleted bottom pus mount hole, since it interferes with inlet when
   flat-headed
 - [X] increase inner Y+ margin and added tolerance to io shield window
-
-# TODO
-
-- feature: front usb-c sockets
-- feature: power button placement; other front panel features?
-- feature: usb ports from headers
-- feature: wifi antenna placement
-- feature: audio header usage
-- feature: cable retention features in the front-void
-- feature: psu rear hold-down
 
 */
 
@@ -325,32 +325,29 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
         ]) {
 
           // knock-down side-walls
+          kd_size = [
+            inner_size.x - 2*wall,
+            wall,
+            inner_size.z - wall
+          ];
           up(wall/2)
           attach([FRONT, BACK], FRONT, overlap=$eps)
-          cuboid([
-            inner_size.x - 2*wall,
-            wall + 2*$eps,
-            inner_size.z - wall + $eps
-          ], chamfer=wall, edges=[
+          cuboid(kd_size + [0, 2*$eps, $eps], chamfer=kd_size.z*2/5, edges=[
             [0, 0, 0, 0], // yz -- +- -+ ++
-            [1, 1, 0, 0], // xz
-            [0, 0, 0, 0], // xy
-          ]);
-
-          // knock-down front wall
-          up(wall/2)
-          attach(RIGHT, LEFT, overlap=$eps)
-          cuboid([
-            wall + 2*$eps,
-            inner_size.y - 2*wall,
-            inner_size.z - wall + $eps
-          ], chamfer=wall, edges=[
-            [1, 1, 0, 0], // yz -- +- -+ ++
-            [0, 0, 0, 0], // xz
+            [1, 1, 1, 1], // xz
             [0, 0, 0, 0], // xy
           ]);
 
         }
+
+      // front panel buttons
+      tag("remove")
+      attach(RIGHT, TOP, overlap=wall+$eps) {
+        xdistribute(sizes=[19, 14], spacing=wall) {
+          cyl(d=16, h=wall+2*$eps);
+          cyl(d=12, h=wall+2*$eps);
+        }
+      }
 
       // io shield window
       restore_part(mainboard_part)
@@ -362,7 +359,7 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
         support_wall(
           l=$parent_size.x,
           h=$parent_size.y,
-          width=$parent_size.z,
+          width=wall,
           // orient=LEFT, spin=90
           orient=FWD, spin=90
         );
@@ -371,12 +368,30 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
       restore_part(psu_part)
       attach(LEFT, TOP, overlap=wall + $eps)
         zrot(-90)
-        power_supply_cutout(wall + 2*$eps)
+        power_supply_cutout(wall + 2*$eps) {
+
           attach_part("inlet") {
             // XXX need part size bounds... this is hack
             sz = $parent_geom[1];
             support_wall(l=sz.y - 4*tolerance, h=sz.x, width=sz.z, orient=LEFT);
           }
+
+          psu_size = struct_val(power_supply(), "size");
+
+          attach(BOTTOM, TOP, overlap=$eps)
+          tag("remove")
+          cuboid(size=[
+            psu_size.x,
+            psu_size.z + 2*wall,
+            wall
+          ],
+          chamfer=wall, edges=[
+            [0, 0, 0, 0], // yz -- +- -+ ++
+            [0, 0, 0, 0], // xz
+            [1, 0, 1, 0], // xy
+          ]);
+
+        }
 
       mount_holes = let (
         components = struct_val(mainboard, "components"),
@@ -421,13 +436,12 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
           ], r=-4)),
           method="smooth", joint=12,
         );
-        tag("remove")
+        // tag("remove")
         right(8) // XXX fudge
         fwd(4) // XXX fudge
         attach(BOTTOM, TOP, overlap=wall+$eps)
-          linear_sweep(path, wall + 2*$eps);
+          !linear_sweep(path, 200);
       }
-
 
       // antenna mount posts
       tag("keep")
