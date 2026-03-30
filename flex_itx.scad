@@ -82,7 +82,7 @@ support_wall_width = 2.4;
 
 /* [Part Selection] */
 
-mode = 100; // [0:Assembly, 100:Dev]
+mode = 0; // [0:Assembly, 1:Case, 2:Case Solid, 3: Case_Cutout, 100:Dev]
 
 // Section cutaway in preview mode.
 preview_cut = false;
@@ -121,9 +121,15 @@ psu_mount_screw = "M3";
 /// dispatch / integration
 
 module main() {
+
   if (mode == 0) {
     assembly();
   }
+
+  else if (mode == 1) { shell(floor_cutout="yes"); }
+  else if (mode == 2) { shell(floor_cutout=""); }
+  else if (mode == 3) { shell(floor_cutout="only"); }
+
   else if (mode == 100) {
     dev();
   }
@@ -145,21 +151,25 @@ module assembly() {
       psu_gap = 4, // XXX dupe
     )
 
-    attach_part("mainboard")
-      attach(BOTTOM, BOTTOM)
-      up(mainboard_clearance[0])
-      down(4.5) // io shield underhang
-        compute();
-        // %cube(_attach_geom_size($parent_geom), center=true);
+    if (!$preview) {
 
-    attach_part("power_supply")
-      attach(BOTTOM, LEFT)
-        power_supply();
-        // %cube(_attach_geom_size($parent_geom), center=true);
+      attach_part("mainboard")
+        attach(BOTTOM, BOTTOM)
+        up(mainboard_clearance[0])
+        down(4.5) // io shield underhang
+          compute();
+          // %cube(_attach_geom_size($parent_geom), center=true);
 
-    // TODO screws
-    // TODO wires
-    // TODO button
+      attach_part("power_supply")
+        attach(BOTTOM, LEFT)
+          power_supply();
+          // %cube(_attach_geom_size($parent_geom), center=true);
+
+      // TODO screws
+      // TODO wires
+
+    }
+
   }
 }
 
@@ -248,7 +258,10 @@ module test_brackets() {
 
 }
 
-module shell(anchor = CENTER, spin = 0, orient = UP) {
+module shell(
+  floor_cutout = "yes",
+  anchor = CENTER, spin = 0, orient = UP,
+) {
 
   split_at = 10;
 
@@ -323,7 +336,6 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
           [1, 1, 0, 0], // xz
           [1, 1, 1, 1], // xy
         ]) {
-
           // knock-down side-walls
           kd_size = [
             inner_size.x - 2*wall,
@@ -332,21 +344,21 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
           ];
           up(wall/2)
           attach([FRONT, BACK], FRONT, overlap=$eps)
-          cuboid(kd_size + [0, 2*$eps, $eps], chamfer=kd_size.z*2/5, edges=[
+          cuboid(kd_size + [0, 2*$eps, $eps], chamfer=kd_size.z*9/20, edges=[
             [0, 0, 0, 0], // yz -- +- -+ ++
             [1, 1, 1, 1], // xz
             [0, 0, 0, 0], // xy
           ]);
-
         }
 
       // front panel buttons
       tag("remove")
       attach(RIGHT, TOP, overlap=wall+$eps) {
-        xdistribute(sizes=[19, 14], spacing=wall) {
-          cyl(d=16, h=wall+2*$eps);
-          cyl(d=12, h=wall+2*$eps);
-        }
+        // xdistribute(sizes=[19, 14], spacing=wall) {
+        //   cyl(d=16, h=wall+2*$eps);
+        //   cyl(d=12, h=wall+2*$eps);
+        // }
+        cyl(d=16, h=wall+2*$eps);
       }
 
       // io shield window
@@ -369,15 +381,12 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
       attach(LEFT, TOP, overlap=wall + $eps)
         zrot(-90)
         power_supply_cutout(wall + 2*$eps) {
-
           attach_part("inlet") {
             // XXX need part size bounds... this is hack
             sz = $parent_geom[1];
             support_wall(l=sz.y - 4*tolerance, h=sz.x, width=sz.z, orient=LEFT);
           }
-
           psu_size = struct_val(power_supply(), "size");
-
           attach(BOTTOM, TOP, overlap=$eps)
           tag("remove")
           cuboid(size=[
@@ -390,7 +399,6 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
             [0, 0, 0, 0], // xz
             [1, 0, 1, 0], // xy
           ]);
-
         }
 
       mount_holes = let (
@@ -427,21 +435,30 @@ module shell(anchor = CENTER, spin = 0, orient = UP) {
               chamfer2=-mainboard_hole_chamfer);
       }
 
-      // // cutout floor
-      // restore_part(mainboard_part) {
-      //   path = round_corners(
-      //     xflip(offset([
-      //       for (h = mount_holes)
-      //       struct_val(h, "offset")
-      //     ], r=-4)),
-      //     method="smooth", joint=12,
-      //   );
-      //   // tag("remove")
-      //   right(8) // XXX fudge
-      //   fwd(4) // XXX fudge
-      //   attach(BOTTOM, TOP, overlap=wall+$eps)
-      //     !linear_sweep(path, 200);
-      // }
+      // cutout floor
+      if (floor_cutout) {
+        restore_part(mainboard_part) {
+          path = round_corners(
+            xflip(offset([
+              for (h = mount_holes)
+              struct_val(h, "offset")
+            ], r=-4)),
+            method="smooth", joint=12,
+          );
+
+          right(8) // XXX fudge
+          fwd(4) // XXX fudge
+          attach(BOTTOM, TOP, overlap=wall+$eps) {
+            if (floor_cutout == "only") {
+              !linear_sweep(path, 200);
+            } else {
+              tag("remove")
+              linear_sweep(path, 200);
+            }
+          }
+
+        }
+      }
 
       // antenna mount posts
       tag("keep")
