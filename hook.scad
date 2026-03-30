@@ -37,31 +37,42 @@ rounding = 1.5;
 // - rear height 10
 
 // Size of the C-shaped mounting hook, X is span front-to-back, Y is height of the C's "legs".
-mount_size = [23, 21];
+//
+// # Round 1 prototypes:
+//   1. mount_size = [50, 30];
+//   2. mount_size = [55, 30];
+//   3. mount_size = [50, 35];
+//   4. mount_size = [55, 35];
+// > ahh okay so what I'm seeing:
+// > - the height of 4, but front-to-back dimension needs to be about half way between 3 & 4, gotcha
+mount_size = [ 52.5, 35 ]; // Round 2 after feeedback
 
 // Travel length between the C-shape mount hook and the curved loop.
-travel = 25;
+travel = 50;
 
 // Angle of travel to create an offset between mount hook and loop.
 travel_ang = 30;
 
 // Radius of the end loop.
-loop_r = 15;
+loop_r = 25;
 
 // Arc-angle of the end loop.
 loop_ang = 210;
 
 // Extrusion width of the hook; i.e. how many layers wide will be the hook.
-hook_width = 3.5;
+hook_width = 26;
+
+hole = 12;
+hole_r = 1;
 
 // Wall thickness of the from inner profile to outer profile.
-wall = 2.0;
+wall = 3.0;
 
 // Grip bump size in X.
-grip_size = 3;
+grip_size = 5;
 
 // Outer grip bump Y displacement.
-grip_at = 9;
+grip_at = 2;
 
 /// dispatch / integration
 
@@ -100,22 +111,30 @@ module dev() {
 }
 
 module main() {
-  union() {
+  difference() {
 
-    linear_sweep(hook_shape, hook_width);
+    union() {
+      linear_sweep(hook_shape, hook_width);
+      move(prof[len(prof)-5])
+      left(wall/2 - $eps)
+      up(hook_width/2)
+      prismoid(
+        anchor=BOTTOM,
+        orient=RIGHT,
+        spin=90,
+        size2=[wall, hook_width],
+        size1=[2*wall, hook_width],
+        h=grip_size + wall,
+        shift=[wall/2, 0],
+      );
+    }
 
-    move(prof[len(prof)-5])
-    left(wall/2 - $eps)
-    up(hook_width/2)
-    prismoid(
-      anchor=BOTTOM,
-      orient=RIGHT,
-      spin=90,
-      size2=[wall, hook_width],
-      size1=[2*wall, hook_width],
-      h=grip_size + wall,
-      shift=[wall/2, 0],
-    );
+    if (hole > 0) {
+      up(hook_width/2)
+      move(prof[len(prof)-6 - 30])
+      yrot(45)
+      cuboid([hole, 4*wall, hole], rounding=hole_r, edges="Y");
+    }
 
   }
 }
