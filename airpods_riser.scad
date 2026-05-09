@@ -11,7 +11,7 @@ platform_size = [ 2, 2, 6 ];
 
 /* [Airpod dimension] */
 
-airpod_size = [ 61, 31, 22.25 ];
+airpod_size = [ 62.5, 32, 22.25 ];
 
 airpod_round = 11;
 
