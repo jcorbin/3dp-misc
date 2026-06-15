@@ -130,7 +130,10 @@ module main() {
   else if (mode == 2) { shell(floor_cutout=""); }
   else if (mode == 3) { shell(floor_cutout="only"); }
   else if (mode == 4) { 
-    fan_cowl(orient=DOWN);
+    fan_cowl(orient=DOWN,
+      extra=[24, 24],
+      shift=[24, 24],
+    );
   }
 
   else if (mode == 100) {
@@ -184,7 +187,11 @@ module dev() {
   // power_supply_bracket()
   // antenna_mount()
   // shell()
-  fan_cowl()
+  fan_cowl(
+    extra=[24, 24],
+    shift=[24, 24],
+  )
+  // fan_cowl_body()
   // assembly()
   {
     // %show_anchors(std=false);
@@ -196,7 +203,7 @@ module dev() {
     // ]) anchor_arrow();
     // zrot(-45)
     // #cube([ feature, 2*$parent_size.y, 2*$parent_size.z ], center=true);
-    %cube($parent_size, center=true);
+    // %cube($parent_size, center=true);
   }
 
   // shape = XXX();
@@ -262,89 +269,150 @@ module test_brackets() {
 
 }
 
+fan_cowl_size = [ 125, 125, wall ];
+
+fan_cowl_outlet_size = [ 116, 3 ];
+
+fan_screw_spacing = 105;
+fan_screw_hole_d = 4;
+fan_screw_head_d = 7;
+
+fan_cowl_boss_size = [ fan_screw_head_d + 2*wall, 3 ];
+
+fan_spindle = [ 38, wall ];
+
 module fan_cowl(
   anchor = CENTER, spin = 0, orient = UP,
   wall = wall,
+  corner_chamfer = wall,
+  extra = [ 0, 0 ],
+  shift = [ 0, 0 ],
+) {
+  tol = 0.5;
+  spar = [ wall/2, fan_cowl_boss_size.y + wall ];
+
+  cut = fan_cowl_size.z;
+  cap_d = fan_screw_head_d + 2*tol;
+  fixup = feature/2;
+
+  // TODO
+  // attachable(anchor, spin, orient,
+  //   size=body_size,
+  // ) {
+  //   children();
+  // }
+
+  // TODO extra XY and offset
+  diff() fan_cowl_body(anchor, spin, orient,
+    wall = wall,
+    corner_chamfer = corner_chamfer,
+    extra = extra,
+    shift = shift,
+  ) {
+
+    // outlet
+    tag("remove")
+    attach("outlet", BOTTOM, overlap=cut+$eps) cyl(
+      d=fan_cowl_outlet_size.x + 2*tol,
+      h=cut+2*$eps,
+      chamfer2=-chamfer/2);
+
+    // mount holes
+    tag("remove")
+      attach(["mount_0", "mount_1", "mount_2", "mount_3"], BOTTOM, overlap=cut+$eps)
+      // cap head
+      cyl(
+        d1=cap_d,
+        d2=cap_d + chamfer,
+        h=cut + 2*$eps)
+      // transition 1
+      attach(BOTTOM, TOP, overlap=$eps)
+      cuboid([sqrt(3)*cap_d/2, cap_d/2, fixup + $eps])
+      zrot(90)
+      // transition 2
+      attach(BOTTOM, TOP, overlap=$eps)
+      cuboid([sqrt(3)*cap_d/2, cap_d/2, fixup + $eps])
+      attach(BOTTOM, TOP, overlap=$eps)
+      // bore
+      cyl(
+        d=fan_screw_hole_d + 2*tol,
+        h=fan_cowl_boss_size.y + 2*$eps);
+
+    // grill and spindle cover
+    tag("keep")
+    attach("outlet", BOTTOM, overlap=spar.y)
+      cyl(d=fan_spindle.x, h=spar.y, chamfer2=chamfer)
+      attach(CENTER, CENTER)
+      zrot_copies(rots=half_rots(4))
+        cuboid([fan_cowl_outlet_size.x+2*$eps + 2*chamfer, spar.x, spar.y], chamfer=min(spar)/4, edges=[
+          [0, 0, 1, 1], // yz -- +- -+ ++
+          [0, 0, 0, 0], // xz
+          [0, 0, 0, 0], // xy
+        ]);
+
+  }
+}
+
+module fan_cowl_body(
+  anchor = CENTER, spin = 0, orient = UP,
+  wall = wall,
+  corner_chamfer = chamfer,
+  extra = [ 0, 0 ],
+  shift = [ 0, 0 ],
 ) {
 
-  frame_size = [ 125, 125, wall ];
-  outlet_size = [ 118, 3 ];
-  fan_screw_spacing = 105;
-  screw_hole_d = 4;
-  screw_head_d = 7;
-  boss_size = [ screw_head_d + 2*wall, 4 ];
-  tol = 0.5;
-  spar = [ wall/2, wall ];
-  spindle = [ 36, wall ];
-
-  outer_size = [
-    frame_size.x,
-    frame_size.y,
-    frame_size.z + max(outlet_size.y, boss_size.y),
+  panel_size = [
+    fan_cowl_size.x + extra.x,
+    fan_cowl_size.y + extra.y,
+    fan_cowl_size.z,
   ];
 
-  attachable(
-    anchor, spin, orient,
-    size=outer_size,
+  body_size = [
+    panel_size.x,
+    panel_size.y,
+    panel_size.z + max(fan_cowl_outlet_size.y, fan_cowl_boss_size.y),
+  ];
+
+  sz = body_size - fan_cowl_size;
+  mount_locs = [
+    [-fan_screw_spacing/2, -fan_screw_spacing/2, 0],
+    [ fan_screw_spacing/2, -fan_screw_spacing/2, 0],
+    [ fan_screw_spacing/2,  fan_screw_spacing/2, 0],
+    [-fan_screw_spacing/2,  fan_screw_spacing/2, 0],
+  ];
+
+  xlate = [shift.x, shift.y, sz.z];
+
+  attachable(anchor, spin, orient,
+    size=body_size,
+    anchors=[
+      named_anchor("outlet", xlate, UP),
+      for (i = idx(mount_locs)) named_anchor(
+        str("mount_", i),
+        mount_locs[i] + xlate,
+        UP,
+      )
+    ],
   ) {
-    up((outer_size.z - frame_size.z)/2)
-    diff()
-    cuboid(frame_size, chamfer=8, edges="Z")
-
+    translate(xlate/2)
+    cuboid(panel_size, chamfer=corner_chamfer, edges="Z")
+    translate(shift/2)
     {
+      // outlet interface ring
+      attach(BOTTOM, TOP, overlap=$eps) tube(
+        od1=fan_cowl_outlet_size.x + 2*wall - chamfer,
+        od2=fan_cowl_outlet_size.x + 2*wall,
+        id1=fan_cowl_outlet_size.x + chamfer,
+        id2=fan_cowl_outlet_size.x,
+        h=fan_cowl_outlet_size.y + $eps);
 
-      tag("keep")
-      attach(BOTTOM, TOP, overlap=$eps)
-      tube(
-        od1=outlet_size.x + 2*wall - chamfer,
-        od2=outlet_size.x + 2*wall,
-        id1=outlet_size.x + chamfer,
-        id2=outlet_size.x,
-        h=outlet_size.y + $eps);
-
-      cut = frame_size.z;
-      cap_d = screw_head_d + 2*tol;
-
-      tag("remove") {
-
-        attach(TOP, BOTTOM, overlap=cut+$eps)
-          cyl(d=outlet_size.x, h=cut+2*$eps, chamfer2=-chamfer/2);
-
-        grid_copies(spacing=fan_screw_spacing, n=[2, 2])
-          attach(TOP, BOTTOM, overlap=cut+$eps)
-          cyl(
-            d1=cap_d,
-            d2=cap_d + chamfer,
-            h=cut+2*$eps);
-
-      }
-
-      tag("keep") {
-        zrot_copies(rots=half_rots(4))
-          attach(CENTER, CENTER)
-          cuboid([outlet_size.x+2*$eps, spar.x, spar.y], chamfer=min(spar)/4, edges=[
-            [1, 1, 0, 0], // yz -- +- -+ ++
-            [0, 0, 0, 0], // xz
-            [0, 0, 0, 0], // xy
-          ]);
-
-        cyl(d=spindle.x, h=spindle.y, chamfer2=chamfer);
-
-        grid_copies(spacing=fan_screw_spacing, n=[2, 2]) {
-          attach(BOTTOM, TOP, overlap=$eps)
-          tube(
-            id=screw_hole_d + tol,
-            od1=boss_size.x - chamfer,
-            od2=boss_size.x,
-            h=boss_size.y + $eps);
-
-          up(support_gap/2)
-          attach(CENTER, CENTER)
-          zrot_copies(rots=half_rots(2))
-          support_wall(cut + support_gap, cap_d);
-
-        }
-
+      // mount screw bosses
+      grid_copies(spacing=fan_screw_spacing, n=[2, 2]) {
+        attach(BOTTOM, TOP, overlap=$eps)
+        cyl(
+          d1=fan_cowl_boss_size.x - chamfer,
+          d2=fan_cowl_boss_size.x,
+          h=fan_cowl_boss_size.y + $eps);
       }
     }
 
