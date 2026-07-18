@@ -66,7 +66,26 @@ cuboid(
       chamfer1=-3*chamfer,
       rounding2=dome_height)
 
+{
+
 // Holes
 tag("remove")
 grid_copies(n=2, spacing=[ hole_spacing, hole_spacing ])
   cyl(h=100, d=hole_diameter);
+
+// room for plenty of post perimeters
+fin_w = 2*post_radius - 8 * feature;
+
+// tall enough to span into the post, into the base, and thru the post's fillet region
+fin_h = plate_height/2 + 3*chamfer + post_height/4;
+fin_n = 8;
+
+// Interior micro-fins for more strength
+tag("remove")
+down((post_height + dome_height)/2)
+up(fin_h/2)
+down(plate_height/2)
+zrot_copies(n=fin_n)
+cuboid([fin_w, feature, fin_h]);
+
+}
