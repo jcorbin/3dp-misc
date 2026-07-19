@@ -32,14 +32,8 @@ rounding = 1.5;
 
 inch = 25.4;
 
-// Plate footprint width (X).
-plate_width = 2.25 * inch;
-
-// Plate footprint depth (Y).
-plate_depth = 2.25 * inch;
-
-// Plate thickness (Z).
-plate_height = 0.25 * inch;
+// Base plate size
+plate_size = [2.25, 2.25, 0.25] * inch;
 
 // Plate corner rounding radius.
 corner_radius = 0.125 * inch;
@@ -66,6 +60,39 @@ fin_n = 8;
 
 mode = 100; // [0:Foot, 1:Body, 100:Dev]
 
+
+/***
+STL auto generation entry points; easy to hang something like a Makefile off //@make comment directives:
+
+```Makefile
+
+SCAD=handle.scad
+MODELS=$(shell grep '//@make ' $(SCAD) | grep -E -o -- ' -o +[^ ]+' | sed -e 's/^ -o //')
+
+all: $(MODELS)
+
+clean:
+	rm -f $(MODELS)
+
+$(MODELS): $(SCAD)
+	test -d $(dir $@) || mkdir -p $(dir $@)
+	openscad $< $(shell grep '//@make ' $< | grep -- ' -o $@' | sed -r -e 's/^\/\/@make //')
+
+$(SCAD): init
+
+# suggest using git-lfs to track rendered STL artifacts
+init: BOSL2/std.scad
+	git config filter.lfs.smudge >/dev/null || git config --local include.path ../.gitconfig
+
+# suggest using a git submodule to pin your bosl2 version
+BOSL2/std.scad:
+	git submodule update --init
+
+```
+*/
+
+//@make -o foot.stl -D mode=0
+
 /// dispatch / integration
 
 module main() {
@@ -81,24 +108,28 @@ module main() {
 }
 
 module dev() {
-  foot();
 
-  // Ghost the uncut body to reveal its named anchors and bounding box.
-  %body() {
-    show_anchors(s=10, std=false);
-    cube($parent_size, center=true);
-  }
+  // // Ghost the uncut body to reveal its named anchors and bounding box.
+  // foot();
+  // %body() {
+  //   show_anchors(s=10, std=false);
+  //   cube($parent_size, center=true);
+  // }
+
+  // Partial cutaway with transparent ghost overlay of the remnant
+  back_half()
+  foot();
+  #foot();
 }
 
 // The uncut plate + post solid, before holes and fins are differenced out.
 // Attachable with named "mount_0".."mount_3" anchors at the mounting
 // holes and a "tip" anchor at the dome apex, all facing UP.
 module body(anchor = CENTER, spin = 0, orient = UP) {
-  plate_size = [plate_width, plate_depth, plate_height];
   post_h = post_height + dome_height;
   size = plate_size + [0, 0, post_h];
 
-  plate_top = (plate_height - post_h) / 2;
+  plate_top = (plate_size.z - post_h) / 2;
   plate_z = -post_h / 2;
 
   // The four mounting-hole locations, on the plate's top face.
@@ -136,7 +167,7 @@ module foot(anchor = CENTER, spin = 0, orient = UP) {
   fin_w = 2*post_radius - 8 * feature;
 
   // tall enough to span into the post, into the base, and thru the post's fillet region
-  fin_h = plate_height/2 + 3*chamfer + post_height/4;
+  fin_h = plate_size.z/2 + 3*chamfer + post_height/4;
 
   // Plate mid-plane in the bounding-box-centered frame (see body()).
   plate_z = -(post_height + dome_height) / 2;
@@ -145,8 +176,8 @@ module foot(anchor = CENTER, spin = 0, orient = UP) {
   body(anchor, spin, orient) {
     // Mounting holes, drilled down through the plate at each mount anchor.
     tag("remove")
-    attach([ "mount_0", "mount_1", "mount_2", "mount_3" ], BOTTOM, overlap=plate_height + $eps)
-      cyl(h=plate_height + 2*$eps, d=hole_diameter);
+    attach([ "mount_0", "mount_1", "mount_2", "mount_3" ], BOTTOM, overlap=plate_size.z + $eps)
+      cyl(h=plate_size.z + 2*$eps, d=hole_diameter);
 
     // Interior micro-fins for more strength, rising from the plate mid-plane.
     tag("remove")
