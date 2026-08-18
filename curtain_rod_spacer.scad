@@ -12,12 +12,15 @@ across the load path rather than along it. The rod pushes the nose outward and
 the foot pushes the wall back; both of those are in-plane, which is the strong
 way around for an FDM part.
 
-Two parts:
+Three parts:
 
 1. the spacer, in whatever the rest of the house prints in
 2. a boot, in TPU, that pulls onto the spacer's foot and is what actually
    touches the wall -- so the thing bearing on paint is soft, and the spacer's
    printed corner is not
+3. a liner, in TPU, a split sleeve that snaps onto the rod for the spacer to
+   slide over -- it fills the 5mm the bore was asked to leave, so the rod stops
+   rattling in it and the assembly stops wandering along it
 
 The boot's outside is a prismoid flaring out toward the wall, which spreads the
 load over a wider pad than the spacer's own 27 x 20 of contact and gives it a
@@ -25,21 +28,51 @@ draft angle to print up: widest face on the bed, every wall leaning inward,
 nothing overhanging. Inside it is a plain socket over the foot with a few
 horizontal fins standing into it -- see boot_fin().
 
+# As built
+
+Two printed and hung 2026-08-16: PETG spacers with TPU boots, over a door on a
+20mm rod. Sits square, gap reads as the two rod diameters it should be, and the
+boot does not announce itself as a separate part. What follows is what only
+became visible once one was in place carrying something.
+
+- It is a strut, not a bracket. Nothing here pushes a rigid rod anywhere; the
+  gap holds only while something else presses the rod back toward the wall.
+  Unloaded, the spacer's own mass hangs 52.5 out from the rod axis and wants to
+  swing the foot straight down, and nothing fixes its clock angle -- so this is
+  a part that works because it is loaded, not one that works and then gets
+  loaded.
+- What margin there is comes from the pad being nearly as wide as the arm is
+  long: 21.7 of half-width against a 52.5 arm, so the load resultant has about
+  22 degrees of clocking to play with before it walks off the edge of the pad
+  and the boot is standing on a corner. That flat pad is the anti-rotation
+  feature, such as it is; there is no other.
+- The 5mm of bore slop is also 14 degrees of skew -- 5 diametral over a 20 bore
+  -- and the wall wins that argument. The pad stays flat and the rod takes up
+  the slack instead, so the bore bears on its two mouth chamfers rather than
+  across its full 20. Harmless on a light rod, and those chamfers are the
+  relieved edge anyway, but the same slop leaves nothing holding the spacer
+  anywhere along the rod. This is what the liner is for, and it is the one
+  fix here that retrofits onto parts already hung.
+- A 33 nose is a 33 obstruction: curtain rings cannot pass it. Fine at the
+  ends, where these went; it rules the part out mid-span.
+- TPU held against latex paint under steady pressure is the thing to check back
+  on. It will burnish a mark or collect dust into a ring long before it fails
+  at anything structural, and the boot made that more likely rather than less.
+
 # TODO
 
 - feature: split it, so it can go on a rod that is already hung. As drawn it
   has to thread on over an end, which means taking the rod down and pulling a
-  finial. A keyhole slot or a two-piece clamshell would fix that, and the hole
-  is loose enough (5mm) that a slot would not have to flex far.
-- feature: something to keep it from rotating on the rod. Nothing here fixes
-  its clock angle; it stays put by friction against the wall and by the
-  curtain's own weight, which is fine for a light rod and a guess for anything
-  heavier.
+  finial -- twice, so far. The slot belongs on the crown at +Y, the side the
+  load pushes the rod away from and the only part of the ring carrying nothing.
+  But 4mm of PETG will not spring 20 open, so it is a two-piece or a captured
+  cap rather than the snap that the liner gets to be.
 - unknown: whether the boot needs venting. Its socket is closed at the pad, so
   pushing the spacer in compresses what is in there, and only the fins' own
   leakage lets it out. If it turns out to fight going on or to creep back off,
   the answer is a small hole through the pad -- but that is a hole in the face
   that touches the wall, so it waits for a print that actually misbehaves.
+  Nothing observed either way on the two that went up.
 
 */
 
@@ -85,8 +118,8 @@ foot_flare = 0;
 // Corner rounding where the wall face turns into the sides.
 foot_rounding = 3;
 
-// Echo a fit report when rendering.
-spacer_report = true;
+// Echo a fit report for whichever parts get rendered.
+report = true;
 
 /* [Boot] */
 
@@ -117,9 +150,26 @@ fin_reach = 0.6;
 // Height of a fin's lead-in ramp.
 fin_ramp = 1.6;
 
+/* [Liner] */
+
+// Interference on the rod, so the sleeve stretches on rather than dropping on.
+liner_grip = 0.4;
+
+// Interference in the spacer's bore, so the sleeve stays with the spacer.
+liner_squeeze = 0.2;
+
+// Mouth width; under the rod diameter is what makes it snap on.
+liner_mouth = 14;
+
+// Collar width past the bore, the stop the spacer slides up to.
+liner_collar = 2;
+
+// Collar thickness.
+liner_collar_h = 2;
+
 /* [Part Selection] */
 
-mode = 1; // [0:Assembly, 1:Spacer, 2:Boot, 100:Boot Section]
+mode = 1; // [0:Assembly, 1:Spacer, 2:Boot, 3:Liner, 100:Boot Section]
 
 module __customizer_limit__() {}
 
@@ -215,7 +265,7 @@ module curtain_rod_spacer(anchor = CENTER, spin = 0, orient = UP) {
   foot_y = -size.y / 2 + foot_rounding;
   foot_x = size.x / 2 - foot_rounding;
 
-  if (spacer_report) spacer_fit();
+  if (report) spacer_fit();
 
   attachable(
     anchor, spin, orient, size=size,
@@ -328,7 +378,7 @@ module curtain_rod_boot(anchor = CENTER, spin = 0, orient = UP) {
   floor_z = -size.z / 2 + boot_base;
   step = boot_depth / (fin_n + 1);
 
-  if (spacer_report) {
+  if (report) {
     echo(str("boot fit: ", size, " over a ", cav, " socket ", boot_depth, " deep"));
     echo(str("boot fit: ", fin_n, " fins every ", step,
         ", each ", fin_reach - boot_tolerance, " into the spacer",
@@ -366,10 +416,112 @@ module curtain_rod_boot(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+/// liner
+//
+// Liner axes are the spacer's: Z is along the rod, and the mouth opens toward
+// +Y. That orientation is the whole install note. The rod bears on the wall
+// side of the bore, so the continuous back of the C goes there and the split
+// goes on the crown -- the one part of the ring carrying nothing. Same argument
+// as the split-spacer TODO, except here it costs nothing, because TPU will
+// actually do what PETG cannot.
+//
+// It retrofits without taking anything down, which is the point: slide the
+// spacer along the rod to clear a span, snap the liner on there, slide the
+// spacer back over it until it stops on the collar. No finial comes off.
+//
+// With one in, the rod is centered rather than lying against the wall side of
+// its 5mm, so the gap goes to the 42.5 that spacer_fit() reports as the
+// centered case. The standoff is still specified worst-case; the liner just
+// stops the part from ever being at its worst.
+//
+// What the customizer labels are short for:
+//
+// - liner_grip is interference on the rod, not clearance. The sleeve is drawn
+//   under size and stretches on, and that grip is the whole of what keeps the
+//   assembly from wandering along the rod.
+// - liner_squeeze is the same idea pointed outward, into the spacer's bore. It
+//   is small because the split already does most of that work: a C sprung open
+//   around a rod is a spring pushing outward whether or not it was drawn to.
+// - liner_mouth under rod_d is what makes it snap on rather than drop on. It
+//   buys retention and costs insertion force, both off the same number.
+
+// Echo what the sleeve comes out at.
+//
+// The number worth checking is the wrap, because it is the one that decides
+// whether this stays on the rod at all, and it is not the number typed in:
+// liner_mouth is measured straight across the flat, and what holds is the arc.
+module liner_fit(id, od, collar_d, len) {
+  wrap = liner_mouth < id ? 360 - 2 * asin(liner_mouth / id) : 0;
+  echo(str("liner fit: ", id, " on a ", rod_d, " rod, ", od, " in a ",
+      rod_hole_d(), " bore, ", collar_d, " collar"));
+  echo(str("liner fit: mouth ", liner_mouth, " wraps ", wrap, " deg",
+      wrap > 180 ? "" : " -- FAIL, it will not hold on the rod"));
+  echo(str("liner fit: spreads ", rod_d - liner_mouth, " to pass the rod",
+      ", ", len, " long over ", thickness, " of bore"));
+}
+
+// The split sleeve.
+//
+// Printed standing on its collar, which is both how it prints and how it works:
+// the layers stack along the rod, so the arms spread within the layer plane
+// rather than trying to peel one layer off the next, and the widest face is on
+// the bed with nothing overhanging above it.
+//
+// The slot runs the whole height, collar included. A closed collar ring would
+// have to stretch over the rod instead of spreading past it, which is the one
+// thing an otherwise very forgiving material is not good at.
+module curtain_rod_liner(anchor = CENTER, spin = 0, orient = UP) {
+  id = rod_d - liner_grip;
+  od = rod_hole_d() + liner_squeeze;
+  collar_d = od + 2 * liner_collar;
+  len = liner_collar_h + thickness;
+
+  if (report) liner_fit(id, od, collar_d, len);
+
+  attachable(
+    anchor, spin, orient, d=collar_d, l=len,
+    anchors=[
+      named_anchor("collar", [0, 0, -len / 2], DOWN),
+      named_anchor("mouth", [0, od / 2, 0], BACK),
+    ],
+  ) {
+    diff() {
+      union() {
+        down(len / 2)
+          cyl(d=collar_d, h=liner_collar_h,
+            chamfer1=min(chamfer, liner_collar_h - feature), anchor=BOTTOM);
+
+        // The sleeve, chamfered at the leading end only. That end meets the
+        // spacer's own flared bore mouth, and two eased edges is what keeps
+        // sliding the spacer on from rolling the sleeve up ahead of it.
+        down(len / 2 - liner_collar_h)
+          cyl(d=od, h=thickness,
+            chamfer2=min(chamfer, (od - id) / 2 - feature), anchor=BOTTOM);
+      }
+
+      // The bore, flared both ends, so the sleeve leads onto the rod either way
+      // up -- it is symmetric about that even though the outside is not.
+      tag("remove")
+        cyl(d=id, h=len + 2 * $eps, chamfer=-chamfer / 2);
+
+      // The mouth, cut from the axis outward so its flanks stay parallel and
+      // the rod passes straight through rather than having to round a corner
+      // on the way in. Where those flanks meet the bore is the sharpest thing
+      // on the part and the place a crack would start, if TPU cracked.
+      tag("remove")
+      back(collar_d / 4)
+        cuboid([liner_mouth, collar_d / 2 + $eps, len + 2 * $eps]);
+    }
+
+    children();
+  }
+}
+
 /// dispatch / integration
 
 //@make -o curtain_rod_spacer.stl -D mode=1
 //@make -o curtain_rod_boot.stl -D mode=2
+//@make -o curtain_rod_liner.stl -D mode=3
 
 module main() {
   if (mode == 0) {
@@ -378,6 +530,8 @@ module main() {
     curtain_rod_spacer();
   } else if (mode == 2) {
     curtain_rod_boot();
+  } else if (mode == 3) {
+    curtain_rod_liner();
   } else if (mode == 100) {
     // The boot cut down its length. Not a part -- it is the only way to see
     // what a fin's profile actually came out as, which is the one thing in
@@ -387,17 +541,27 @@ module main() {
   }
 }
 
-// Both parts and the two things they sit between, the latter ghosted: the rod
-// through the bore, lying where it lies worst -- against the wall side of the
-// hole -- and the wall, which now bears on the boot rather than on the spacer.
+// All three parts and the two things they sit between, the latter ghosted: the
+// rod through the bore and the wall, which now bears on the boot rather than on
+// the spacer.
+//
+// Drawn with the liner in, which means the rod is drawn centered. Without one
+// it lies rod_tolerance/2 further toward the wall and the gap is the 40 that
+// spacer_fit() calls the worst case -- that is the configuration the standoff
+// is specified against, and the liner is what makes it stop happening.
 module assembly() {
   size = spacer_size();
-  slip = rod_tolerance / 2;
 
   curtain_rod_spacer() {
     %attach("rod", BOTTOM, overlap=thickness / 2)
-      fwd(slip)
-        cyl(d=rod_d, h=3 * thickness);
+      cyl(d=rod_d, h=3 * thickness);
+
+    // The liner filling the bore, collar out the near end. Its mouth opens
+    // toward +Y with no spin needed, which is the crown -- away from the wall,
+    // off the side the rod loads.
+    color("#707070ff")
+    attach("rod", BOTTOM, overlap=thickness / 2 + liner_collar_h)
+      curtain_rod_liner();
 
     // The boot pulled on over the foot: mouth into the spacer by the whole
     // socket depth, which lands its floor on the spacer's wall face.
