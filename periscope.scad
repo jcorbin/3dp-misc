@@ -1,3 +1,14 @@
+
+/* [Geometry Detail] */
+
+// Fragment minimum angle.
+$fa = 4; // 1
+
+// Fragment minimum size.
+$fs = 0.2; // 0.05
+
+/* [Part-iculars] */
+
 // --- Parameters ---
 hex_size        = 7;     // Flat-to-flat distance (mm)
 long_arm        = 80;    // Main handle length (mm)
@@ -11,9 +22,13 @@ scope_dia       = 24;    // Outer diameter of expanded cylinder (mm)
 scope_height    = 25;    // Height of vertical periscope turret (mm)
 scope_bend_r    = 8;     // Radius of top elbow curve (mm)
 
-total_arm_height = long_arm - bend_radius;
 disk_to_bend = 25;
-$fn = 64;
+
+/// dispatch / integration
+
+module __customizer_limit__() {}
+
+total_arm_height = long_arm - bend_radius;
 
 // Convert flat-to-flat size to outer corner radius
 r_outer = (hex_size / 2) / cos(30);
