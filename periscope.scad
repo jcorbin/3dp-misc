@@ -1,3 +1,5 @@
+include <BOSL2/std.scad>;
+
 /* [Part Selection] */
 
 // Which part to model.
@@ -11,38 +13,55 @@ $fa = 4; // 1
 // Fragment minimum size.
 $fs = 0.2; // 0.05
 
-/* [Part-iculars] */
+/* [Arm] */
 
-// --- Parameters ---
-hex_size        = 7;     // Flat-to-flat distance (mm)
-long_arm        = 80;    // Main handle length (mm)
-bend_radius     = 10;    // L-bend radius (mm)
-disk_thickness  = 2;     // Thickness of retaining disk
-disk_r          = 5;    // Radius of retaining disk
+// Hex shaft size, flat-to-flat.
+hex_size = 7;
 
-// Periscope End Dimensions
-scope_trans_len = 30;    // Length of hex-to-cylinder transition (mm)
-scope_dia       = 24;    // Outer diameter of expanded cylinder (mm)
-scope_height    = 25;    // Height of vertical periscope turret (mm)
-scope_bend_r    = 8;     // Radius of top elbow curve (mm)
+// Overall arm height, from the bend's base plane up to the shaft tip.
+arm_height = 80;
 
-disk_to_bend = 25;
+// L-bend centerline radius.
+bend_radius = 10;
+
+/* [Retaining Disk] */
+
+// Retaining disk diameter.
+disk_diameter = 10;
+
+// Retaining disk thickness.
+disk_thickness = 2;
+
+// Height of the disk's underside above the bend's base plane.
+disk_height = 25;
+
+/* [Scope End] */
+
+// Length of the hex-to-cylinder flare.
+scope_taper = 30;
+
+// Outer diameter of the flared scope cylinder.
+scope_diameter = 24;
+
+// Rounding radius of the turret's top elbow. TODO unmodelled
+scope_bend_radius = 8;
 
 /// dispatch / integration
 
 module __customizer_limit__() {}
 
-total_arm_height = long_arm - bend_radius;
+// Circumscribed (corner-to-corner) diameter of the hex shaft, since hex_size is
+// the flat-to-flat measure.
+hex_od = hex_size / cos(30);
 
-// Convert flat-to-flat size to outer corner radius
-r_outer = (hex_size / 2) / cos(30);
+total_arm_height = arm_height - bend_radius;
 
 // --- 2D Profiles ---
 module hex_profile() {
-    circle(r = r_outer, $fn = 6);
+    circle(r = hex_od/2, $fn = 6);
 }
 
-module round_profile(d = scope_dia) {
+module round_profile(d = scope_diameter) {
     circle(d = d);
 }
 
@@ -54,9 +73,9 @@ module periscope_hex_wrench() {
     hex_profile();
     
     // 2. Disk   
-    translate([0, 0, disk_to_bend])
+    translate([0, 0, disk_height])
     linear_extrude(height = disk_thickness)
-    round_profile(disk_r*2);
+    round_profile(disk_diameter);
     
 
     // 2. Main L-Bend (Hex)
@@ -71,7 +90,7 @@ module periscope_hex_wrench() {
     rotate([0, 90, 0])
     hull() {
         linear_extrude(height = 1) hex_profile();
-        translate([0, 0, scope_trans_len])
+        translate([0, 0, scope_taper])
         linear_extrude(height = 1) round_profile();
     }
 
