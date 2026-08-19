@@ -3,7 +3,7 @@ include <BOSL2/std.scad>;
 /* [Part Selection] */
 
 // Which part to model.
-mode = 0; // [0:Periscope, 100:Dev]
+mode = 0; // [0:Periscope, 100:Dev, 101:Outline Path]
 
 /* [Geometry Detail] */
 
@@ -53,6 +53,39 @@ module __customizer_limit__() {}
 // Circumscribed (corner-to-corner) diameter of the hex shaft, since hex_size is
 // the flat-to-flat measure.
 hex_od = hex_size / cos(30);
+
+// Centerline of the arm and its bend: down the shaft from the tip, then a
+// quarter turn out along +X. Drawn in 2D as (x, height), then stood up into the
+// XZ plane so that the origin is the arm axis crossing the bend's base plane.
+arm_path = xrot(90, p=path3d(turtle([
+  "right", 90,
+  "move", arm_height - bend_radius,
+  "arcleft", bend_radius, 90,
+], state=[0, arm_height])));
+
+// Bounding box of hex_arm(), in that same natural frame: the shaft rises to
+// arm_height, the bend reaches out to bend_radius, and the elbow's end face
+// hangs half a hex below the base plane.
+arm_bounds = [
+  [ -hex_od/2,   -hex_od/2, -hex_od/2   ],
+  [ bend_radius,  hex_od/2,  arm_height ],
+];
+
+// The hex shaft and its L-bend, swept as one piece so the corner has no seam.
+// Attachable with a "tip" anchor at the top of the shaft facing UP, and an
+// "elbow" anchor at the end face of the bend facing RIGHT.
+module hex_arm(anchor = CENTER, spin = 0, orient = UP) {
+  size = arm_bounds[1] - arm_bounds[0];
+  center = (arm_bounds[0] + arm_bounds[1]) / 2;
+  attachable(anchor, spin, orient, size=size, anchors=[
+    named_anchor("tip", [0, 0, arm_height] - center, UP),
+    named_anchor("elbow", [bend_radius, 0, 0] - center, RIGHT),
+  ]) {
+    translate(-center)
+      path_sweep(hexagon(id=hex_size), arm_path);
+    children();
+  }
+}
 
 total_arm_height = arm_height - bend_radius;
 
@@ -110,10 +143,20 @@ module main() {
     dev();
   }
 
+  // Outline Path
+  else if (mode == 101) {
+    stroke(arm_path, closed=false, width=1);
+  }
+
 }
 
 module dev() {
-  %periscope_hex_wrench();
+  %hex_arm()
+  // %periscope_hex_wrench();
+  {
+    show_anchors(s=10, std=false);
+    cube($parent_size, center=true);
+  }
 }
 
 main();
