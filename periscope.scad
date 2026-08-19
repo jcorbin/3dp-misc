@@ -1,5 +1,8 @@
 include <BOSL2/std.scad>;
 
+// A hex-shafted "periscope" wand: a long hex arm, a retaining disk, an L-bend,
+// and a flared conical scope end.
+
 /* [Part Selection] */
 
 // Which part to model.
@@ -104,46 +107,34 @@ module scope_taper(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
-total_arm_height = arm_height - bend_radius;
+// The whole wand. Attachable with "tip" at the shaft end, "disk" at the
+// retaining disk's underside, and "scope" at the flare's wide face.
+module periscope(anchor = CENTER, spin = 0, orient = UP) {
+  // Widest thing on the shaft axis is the disk; widest overall is the scope flare.
+  bounds = [
+    [ -max(hex_od, disk_diameter)/2, -max(disk_diameter, scope_diameter)/2, -scope_diameter/2 ],
+    [ bend_radius + scope_taper,      max(disk_diameter, scope_diameter)/2,  arm_height      ],
+  ];
+  size = bounds[1] - bounds[0];
+  center = (bounds[0] + bounds[1]) / 2;
 
-// --- 2D Profiles ---
-module hex_profile() {
-    circle(r = hex_od/2, $fn = 6);
-}
+  attachable(anchor, spin, orient, size=size, anchors=[
+    named_anchor("tip", [0, 0, arm_height] - center, UP),
+    named_anchor("disk", [0, 0, disk_height] - center, UP),
+    named_anchor("scope", [bend_radius + scope_taper, 0, 0] - center, RIGHT),
+  ]) {
+    translate(-center) {
+      up(arm_height)
+      hex_arm(anchor="tip")
+        attach("elbow", BOTTOM)
+        scope_taper();
 
-module round_profile(d = scope_diameter) {
-    circle(d = d);
-}
-
-module periscope_hex_wrench() {
-    
-    // 1. Long Arm (hex)
-    translate([0, 0, bend_radius])   
-    linear_extrude(height = total_arm_height)
-    hex_profile();
-    
-    // 2. Disk   
-    translate([0, 0, disk_height])
-    linear_extrude(height = disk_thickness)
-    round_profile(disk_diameter);
-    
-
-    // 2. Main L-Bend (Hex)
-    translate([bend_radius, 0, bend_radius])
-    rotate([90, 0, 0])
-    rotate_extrude(angle = 90)
-    translate([-bend_radius, 0, 0])
-    hex_profile();
-
-    // 3. Tapered Transition (Hex -> Wider Cylinder)
-    translate([bend_radius, 0, 0])
-    rotate([0, 90, 0])
-    hull() {
-        linear_extrude(height = 1) hex_profile();
-        translate([0, 0, scope_taper])
-        linear_extrude(height = 1) round_profile();
+      up(disk_height)
+        cyl(d=disk_diameter, h=disk_thickness, anchor=BOTTOM);
     }
 
+    children();
+  }
 }
 
 //@make -o periscope.stl -D mode=0
@@ -152,7 +143,7 @@ module main() {
 
   // Periscope
   if (mode == 0) {
-    periscope_hex_wrench();
+    periscope(anchor=BOTTOM);
   }
 
   // Dev
@@ -169,8 +160,8 @@ module main() {
 
 module dev() {
   // %hex_arm()
-  %scope_taper()
-  // %periscope_hex_wrench();
+  // %scope_taper()
+  %periscope()
   {
     show_anchors(s=10, std=false);
     cube($parent_size, center=true);
