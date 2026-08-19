@@ -13,6 +13,9 @@ $fa = 4; // 1
 // Fragment minimum size.
 $fs = 0.2; // 0.05
 
+// Nudging value used when cutting out (differencing) solids, to avoid coincident face flicker.
+$eps = 0.01;
+
 /* [Arm] */
 
 // Hex shaft size, flat-to-flat.
@@ -87,6 +90,20 @@ module hex_arm(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+// The hex-to-cylinder flare, cast along +Z from its hex end face at BOTTOM to
+// the wide scope face at TOP.
+module scope_taper(anchor = CENTER, spin = 0, orient = UP) {
+  attachable(anchor, spin, orient, size=[scope_diameter, scope_diameter, scope_taper]) {
+    down(scope_taper/2)
+    hull() {
+      linear_sweep(hexagon(id=hex_size), h=$eps, anchor=BOTTOM);
+      up(scope_taper)
+        linear_sweep(circle(d=scope_diameter), h=$eps, anchor=TOP);
+    }
+    children();
+  }
+}
+
 total_arm_height = arm_height - bend_radius;
 
 // --- 2D Profiles ---
@@ -151,7 +168,8 @@ module main() {
 }
 
 module dev() {
-  %hex_arm()
+  // %hex_arm()
+  %scope_taper()
   // %periscope_hex_wrench();
   {
     show_anchors(s=10, std=false);
