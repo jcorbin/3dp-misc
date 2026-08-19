@@ -49,6 +49,9 @@ scope_taper = 30;
 // Outer diameter of the flared scope cylinder.
 scope_diameter = 24;
 
+// Height of the vertical turret rising off the scope end. TODO unmodelled
+scope_height = 25;
+
 // Rounding radius of the turret's top elbow. TODO unmodelled
 scope_bend_radius = 8;
 
@@ -128,6 +131,14 @@ module periscope(anchor = CENTER, spin = 0, orient = UP) {
       hex_arm(anchor="tip")
         attach("elbow", BOTTOM)
         scope_taper();
+        // TODO the periscope turret proper, rising off the flare's wide face:
+        //
+        //   attach(TOP, BOTTOM)
+        //     cyl(h=scope_height, d=scope_diameter, rounding2=scope_bend_radius);
+        //
+        // NB scope_bend_radius is well under the scope's own radius, so it can
+        // only be a rounding on the turret's top edge, not a swept centerline
+        // bend; a real bend needs its own path_sweep off "scope".
 
       up(disk_height)
         cyl(d=disk_diameter, h=disk_thickness, anchor=BOTTOM);
