@@ -1,3 +1,7 @@
+/* [Part Selection] */
+
+// Which part to model.
+mode = 0; // [0:Periscope, 100:Dev]
 
 /* [Geometry Detail] */
 
@@ -42,7 +46,6 @@ module round_profile(d = scope_dia) {
     circle(d = d);
 }
 
-// --- Main Assembly ---
 module periscope_hex_wrench() {
     
     // 1. Long Arm (hex)
@@ -74,4 +77,24 @@ module periscope_hex_wrench() {
 
 }
 
-periscope_hex_wrench();
+//@make -o periscope.stl -D mode=0
+
+module main() {
+
+  // Periscope
+  if (mode == 0) {
+    periscope_hex_wrench();
+  }
+
+  // Dev
+  else if (mode == 100) {
+    dev();
+  }
+
+}
+
+module dev() {
+  %periscope_hex_wrench();
+}
+
+main();
