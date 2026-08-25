@@ -302,8 +302,20 @@ module plate(
     named_anchor("left_bolt",  [-bolt_at/2, 0, -size.z/2], DOWN),
     named_anchor("right_bolt", [ bolt_at/2, 0, -size.z/2], DOWN),
   ]) {
+    // Two chamfers at two scales, which is one more than cuboid() will take:
+    // - plate_chamfer on the four upright corners, carried by the 2D rect the
+    //   slab is swept from
+    // - the generic chamfer around both flat faces, carried by the sweep's own
+    //   ends
+    // - both faces get it because either one may be the bed, and lacking a
+    //   sharper corner just feels better when installing
     diff()
-    cuboid(size, chamfer=plate_chamfer, edges="Z")
+    offset_sweep(
+      rect([size.x, size.y], chamfer=plate_chamfer),
+      height=size.z,
+      ends=os_chamfer(chamfer),
+      check_valid=false,
+      anchor=CENTER)
       tag("remove")
       attach(TOP, BOTTOM, overlap=size.z + $eps)
       bolt_holes(size.z, center=true);
