@@ -99,8 +99,8 @@ plate_thickness = 5;
 // Mount plate Z-corner chamfer.
 plate_chamfer = 5;
 
-// Mount plate size.
-plate_size = [ 220, 100 ];
+// How far the plate stands proud of the handle's feet, all round.
+plate_margin = plate_chamfer;
 
 /* [Panel] */
 
@@ -268,12 +268,21 @@ module bolt_holes(
   }
 }
 
+// The plate's outside size, taken off the box the arch stands in rather than
+// set: handle_body_size is exactly the feet's footprint in XY, since the sweep
+// reaches it on every face. See plate_margin.
+function plate_size() = [
+  handle_body_size.x + 2*plate_margin,
+  handle_body_size.y + 2*plate_margin,
+  plate_thickness,
+];
+
 module plate(
   anchor = CENTER,
   spin = 0,
   orient = UP,
 ) {
-  size = [plate_size.x, plate_size.y, plate_thickness];
+  size = plate_size();
 
   attachable(anchor, spin, orient, size=size, anchors=let (
     bolt_at = struct_val(bolt_holes(), "at")
