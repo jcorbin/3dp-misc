@@ -247,8 +247,16 @@ function bolt_holes() = let (
 // The bores themselves, as a negative for whoever calls it difference.
 // It does not tag itself: the tag has to be applied at the call
 // site, inside the scope of the diff() that is meant to see it.
+//
+// center adds a third hole in the middle, which is not a fastener and has
+// nothing passing through it. It is a sight line for whoever installs the
+// thing: the plate goes on the back of the panel, where its own edges line up
+// with nothing, and a center hole lets it be registered against a mark on the
+// panel instead of measured 65mm in from an edge that may not be square to
+// anything.
 module bolt_holes(
   h,
+  center = false,
   anchor = CENTER,
   spin = 0,
   orient = UP,
@@ -258,9 +266,13 @@ module bolt_holes(
   bolt_at = struct_val(info, "at");
 
   attachable(anchor, spin, orient, size=[ bolt_at + bore_d, bore_d, h ]) {
-    xcopies(spacing=bolt_at)
-      up($eps)
-      cyl(d=bore_d, h=h + 2*$eps);
+    up($eps) {
+      xcopies(spacing=bolt_at)
+        cyl(d=bore_d, h=h + 2*$eps);
+
+      if (center)
+        cyl(d=bore_d, h=h + 2*$eps);
+    }
 
     // TODO head socket recess wen
 
@@ -294,7 +306,7 @@ module plate(
     cuboid(size, chamfer=plate_chamfer, edges="Z")
       tag("remove")
       attach(TOP, BOTTOM, overlap=size.z + $eps)
-      bolt_holes(size.z);
+      bolt_holes(size.z, center=true);
 
     // TODO ribs?
 
