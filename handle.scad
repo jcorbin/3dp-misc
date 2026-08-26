@@ -1,15 +1,55 @@
 include <BOSL2/std.scad>;
 include <BOSL2/screws.scad>;
 
-/* [Part Selection] */
+/***
 
-// Which part to model
-mode = 0; // [0:Assembly, 1:Handle, 2:Plate, 100:Cross Section, 101:Outline Path, 102:Nut Insert Test, 103:Nut Insert Negative]
+# What this is
 
-// Enables preview cutaway for some parts.
-cutaway = true;
+A grab handle, and the plate that backs it.
 
-explode = 10; // TODO animate
+The handle is a swept arch standing on two feet.
+Each foot carries a captive nut in a side-entry trap, and a bolt comes up from
+behind the panel, through the plate, through the panel, and into that nut.
+The plate is the washer for that joint -- it is what stops two M4s pulling
+through whatever the handle is bolted to.
+
+It was drawn for a Corsi-Rosenthal box; see corsi_jig.scad, whose plate_w is
+the same 200 that thru_size carries, and the parts packed alongside it.
+
+Axes:
+- X runs along the span
+- Y front-to-back through the grip
+- Z up out of the panel
+
+Every part is drawn in the assembled frame, which is the frame to design
+in and the wrong one to export from -- see the dispatch section for what each
+part mode turns onto its bed.
+
+# TODO
+
+- feature: grip features under the span. handle() has the anchor for them and
+  nothing attached to it.
+- feature: a head recess in the plate, so the bolt head sits in it rather than
+  on it. See bolt_holes().
+- feature: animate explode.
+
+*/
+
+/* [Geometry Detail] */
+
+// Fragment minimum angle.
+$fa = 4; // 1
+
+// Fragment minimum size.
+$fs = 0.2; // 0.05
+
+// Nudging value used when cutting out (differencing) solids, to avoid coincident face flicker.
+$eps = 0.01;
+
+/* [Part Parameters] */
+
+// Generic chamfer, for bed interface and for edges a hand runs over.
+chamfer = 1.5;
 
 /* [Mount Screws & Nuts] */
 
@@ -48,7 +88,7 @@ handle_height = 30;
 // Vertial lift before angular turn.
 handle_lift = 15;
 
-// Turning angle from top span to each vertical foot
+// Turning angle from top span to each vertical foot.
 handle_ang = 45;
 
 /* [Mount Plate Specs] */
@@ -62,23 +102,34 @@ plate_chamfer = 5;
 // Mount plate size.
 plate_size = [ 220, 100 ];
 
-// Through-plane size.
+/* [Panel] */
+
+// Size of the preview mockup board that the handle bolts through.
 thru_size = [ 500, 200, 5 ];
 
-/* [Geometry Detail] */
+/* [Part Selection] */
 
-// Fragment minimum angle.
-$fa = 4; // 1
+// Which part to model
+mode = 0; // [0:Assembly, 1:Handle, 2:Plate, 100:Cross Section, 101:Outline Path, 102:Nut Insert Test, 103:Nut Insert Negative]
 
-// Fragment minimum size.
-$fs = 0.2; // 0.05
+// Section cutaway in preview mode.
+preview_cut = true;
 
-// Nudging value used when cutting out (differencing) solids, to avoid coincident face flicker.
-$eps = 0.01;
-
-/// dispatch / integration
+// How far apart to hold the assembly's parts in mode 0.
+explode = 10;
 
 module __customizer_limit__() {}
+
+/// handle body
+//
+// The arch is one path_sweep: a cross section carried along an outline that
+// goes up, turns handle_ang, runs across, turns back and comes down.
+//
+// The outline is drawn in XY and stood up by xrot(90), so:
+// - the profile's own X is the section's thickness along the path
+// - and its Y is the width across the grip
+// Which is why handle_size reads [across, through] and the two get swapped
+// everywhere below.
 
 handle_profile = rot(-90, p=rect(size=handle_size, chamfer=handle_chamfer));
 
@@ -103,13 +154,21 @@ handle_outline = turtle([
   "move", 2*handle_lift,
 ], state=-[handle_width, handle_height]/2 - [0, handle_lift]);
 
+// What the arch stands in, and what squares its ends off.
+// The sweep reaches this box on all six faces,
+// so anything sizing itself to the handle can read it here
+// rather than going back to the outline -- see plate_size().
 handle_body_size = [
   handle_width + handle_size.y,
   handle_size.x,
   handle_height + handle_size.y
 ];
 
-module handle_body(anchor = CENTER, spin = 0, orient = UP) {
+module handle_body(
+  anchor = CENTER,
+  spin = 0,
+  orient = UP,
+) {
   attachable(anchor, spin, orient, size=handle_body_size,
     anchors = let (
       H = handle_body_size.z,
@@ -130,7 +189,11 @@ module handle_body(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
-module handle(anchor = CENTER, spin = 0, orient = UP) {
+module handle(
+  anchor = CENTER,
+  spin = 0,
+  orient = UP,
+) {
   handle_bolt_depth = 20;
   nut_offset = 5;
 
@@ -145,6 +208,9 @@ module handle(anchor = CENTER, spin = 0, orient = UP) {
     diff()
     handle_body(orient=UP) {
 
+      // Each trap is spun to face outward,
+      // so its nut goes in from the end of the handle
+      // rather than through the grip.
       tag("remove")
       attach("foot_left", BOTTOM, spin=-90, overlap=handle_bolt_depth)
         nut_insert(mount_screw_spec, handle_bolt_depth + $eps, nut_offset=nut_offset, entry=handle_size.y/2);
@@ -160,6 +226,16 @@ module handle(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+/// mount plate
+
+// Where the bolts land, and how big a hole each one wants.
+//
+// The spacing is the feet's own, derived rather than set:
+// - handle_body_size.x is the box the arch stands in
+// - taking a section thickness off it lands on the centerline of each foot
+//
+// The plate, the panel and the handle all read this,
+// so none of them can disagree about a hole.
 function bolt_holes() = let (
   bolt_at = handle_body_size.x - handle_size.y,
   bore_d = struct_val(screw_info(mount_screw_spec), "diameter") + mount_screw_tol
@@ -168,7 +244,15 @@ function bolt_holes() = let (
   [ "diameter", bore_d ],
 ];
 
-module bolt_holes(h, anchor = CENTER, spin = 0, orient = UP) {
+// The bores themselves, as a negative for whoever calls it difference.
+// It does not tag itself: the tag has to be applied at the call
+// site, inside the scope of the diff() that is meant to see it.
+module bolt_holes(
+  h,
+  anchor = CENTER,
+  spin = 0,
+  orient = UP,
+) {
   info = bolt_holes();
   bore_d = struct_val(info, "diameter");
   bolt_at = struct_val(info, "at");
@@ -184,7 +268,11 @@ module bolt_holes(h, anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
-module plate(anchor = CENTER, spin = 0, orient = UP) {
+module plate(
+  anchor = CENTER,
+  spin = 0,
+  orient = UP,
+) {
   size = [plate_size.x, plate_size.y, plate_thickness];
 
   attachable(anchor, spin, orient, size=size, anchors=let (
@@ -205,7 +293,28 @@ module plate(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
-module nut_insert(spec, h, nut_offset=0, entry = 0, retain = 0/* 0.4*/, bore_tol = mount_screw_tol, nut_tol = mount_nut_tol, decompose = false, anchor = CENTER, spin = 0, orient = UP) {
+/// nut inserts
+
+// The negative that makes a captive nut trap:
+// - a shaft bore all the way through
+// - a hexagonal pocket part way up it
+// - a slot out one side for the nut to go in through
+//
+// Container counterbore hole compensations: a slicer trick made via a stack of
+// prismoid and cuboids on top of the pocket.
+module nut_insert(
+  spec,
+  h,
+  nut_offset = 0,
+  entry = 0,
+  retain = 0/* 0.4*/,
+  bore_tol = mount_screw_tol,
+  nut_tol = mount_nut_tol,
+  decompose = false,
+  anchor = CENTER,
+  spin = 0,
+  orient = UP,
+) {
   N = nut_info(spec);
   BD = struct_val(N, "diameter");
   W = struct_val(N, "width") + nut_tol.x;
@@ -267,7 +376,15 @@ module nut_insert(spec, h, nut_offset=0, entry = 0, retain = 0/* 0.4*/, bore_tol
   }
 }
 
-module nut_insert_test(anchor = CENTER, spin = 0, orient = UP) {
+/// fit tests
+
+// A slice of the foot with one trap in it: the same nut_insert() through the
+// same section, in a few grams rather than a whole handle.
+module nut_insert_test(
+  anchor = CENTER,
+  spin = 0,
+  orient = UP,
+) {
   attachable(anchor, spin, orient, size=[
     handle_size.y,
     handle_size.x,
@@ -287,28 +404,95 @@ module nut_insert_test(anchor = CENTER, spin = 0, orient = UP) {
   }
 }
 
+/// helpers
+
 module color_if(when, name, just=false) {
   if (!when) children();
   else if (just) color_this(name) children();
   else color(name) children();
 }
 
-module preview_cutaway(dir=BACK, at=0, r=[0, 0, 0], s=max(handle_body_size)*2.1) {
-  if (cutaway && $preview) {
-    difference() {
-      rotate(r)
-      children();
-      translate(dir*(at - s/2))
-        cube(s, center=true);
+// Section away half the model in preview.
+module preview_cut(v = BACK, s = 10000) {
+  if (preview_cut && $preview) {
+    half_of(v=v, s=s) {
+      // The union() matters: half_of() differences every child past the first
+      // out of the first one, so handing it a list of siblings would cut them
+      // against each other.
+      union() children();
     }
   } else {
     children();
   }
 }
 
-// Assembly
-if (mode == 0) {
-  preview_cutaway(s=2*max(concat(thru_size, plate_size)))
+/// dispatch / integration
+
+//@make -o handle.stl -D mode=1
+//@make -o handle_plate.stl -D mode=2
+//@make -o handle_nut_test.stl -D mode=102
+
+// Every part is drawn where it sits in the assembly, which is the frame that
+// lets the plate take its bolt spacing off the handle's feet, and not a frame
+// any of it prints in.
+//
+// An STL carries no intent -- whatever orientation it lands in is the one the
+// slicer opens with -- so each part mode below hands its part the orient= that
+// turns it onto its bed.
+//
+// What decides each:
+//
+// - **handle**: DOWN, crown on the bed
+//   - upright it would stand on two 21 x 34 feet and carries a 100mm span
+//     between them
+//   - inverted it lies on the flat top of that span, which is the widest
+//     continuous face on the part, and the feet are what is left in the air
+//   - either way the legs are handle_ang off vertical and nothing overhangs
+//     worse than that
+//   - The preview keeps it upright: orientation is an export concern, and
+//     standing it on its head in the GUI only makes it harder to read against
+//     the assembly
+//
+// - **plate**: UP, and it does not matter which way up
+//   - the plate is a slab with the same chamfer on both faces.
+//
+// - Modes 100 and 101 take none of this. They are 2D diagnostics of the
+//   section and of the path it sweeps, drawn as strokes
+// - Mode and 103 is the nut trap's negative on its own with its parts colored
+//   apart.
+module main() {
+  if (mode == 0) {
+    assembly();
+  }
+
+  else if (mode == 1) {
+    preview_cut() handle(orient = $preview ? UP : DOWN);
+  }
+
+  else if (mode == 2) {
+    preview_cut() plate();
+  }
+
+  else if (mode == 100) {
+    stroke(handle_profile, closed=true, width=1);
+  }
+
+  else if (mode == 101) {
+    stroke(handle_outline, closed=false, width=1);
+  }
+
+  else if (mode == 102) {
+    preview_cut() nut_insert_test();
+  }
+
+  else if (mode == 103) {
+    nut_insert(mount_screw_spec, h=10, entry=5, decompose=true);
+  }
+}
+
+// Plate, panel, handle, and the hardware between them, held apart by explode.
+module assembly() {
+  preview_cut()
   color_this("#0000aaff") plate() {
 
     up(explode/2)
@@ -322,6 +506,8 @@ if (mode == 0) {
       tag("keep")
       attach(TOP, BOTTOM, overlap=-explode/2)
       color_this("#00aa00ff") handle()
+        // The nuts back out along their traps' own axis, which runs across the
+        // grip, and stop at the face they went in through.
         let (
           nut_travel = (handle_size.x - struct_val(nut_info(mount_screw_spec), "width"))/2,
           nut_xplo = min(nut_travel, 2*explode)
@@ -338,40 +524,7 @@ if (mode == 0) {
   }
 }
 
-// Handle
-//@make -o handle.stl -D mode=1
-else if (mode == 1) {
-  preview_cutaway()
-  handle(orient = $preview ? UP : DOWN);
-}
-
-// Plate
-//@make -o handle_plate.stl -D mode=2
-else if (mode == 2) {
-  preview_cutaway()
-  plate();
-}
-
-// Cross Section
-else if (mode == 100) {
-  stroke(handle_profile, closed=true, width=1);
-}
-
-// Outline Path
-else if (mode == 101) {
-  stroke(handle_outline, closed=false, width=1);
-}
-
-// Nut Insert Test
-//@make -o handle_nut_test.stl -D mode=102
-else if (mode == 102) {
-  preview_cutaway() nut_insert_test();
-}
-
-// Nut Insert Negative
-else if (mode == 103) {
-  nut_insert(mount_screw_spec, h=10, entry=5, decompose=true);
-}
+main();
 
 // XXX module dev assist
 // {
