@@ -14,8 +14,11 @@ $eps = 0.01;
 
 /* [Plate Specs] */
 
-// Width of the mounting board that the jig holds/marks.
+// Width of the mounting board.
 plate_w = 200;
+
+// Thickness of the mounting board.
+plate_t = 5;
 
 /* [Fan Specs] */
 
@@ -36,14 +39,6 @@ inter_fan_screw_spacing = 16;
 // Screw hole diamter; M4 is the ideal screw size here, so a decent place to start. Alternatively a smaller value like 2, would allow only smaller pinning of the registration holes.
 screw_hole_d = 4;
 
-// Extra screw hole registration X spacing; typically use "the other" typical value from fan_screw_spacing (105 or 125); may provide more than 1 value if many holes are desired.
-extra_reg = [
-  125, // 140-spec holes for a 120-spec jig
-  // 105, // 120-spec holes for a 140-spec jig
-  // NOTE: may also specify [ X, Y ] vec2 if Y offset is needed
-  // [ 125,  9 ]
-];
-
 /* [Jig Details] */
 
 // Thickness of jig walls.
@@ -54,44 +49,53 @@ chamfer = 0.5;
 
 {
 
-  extra_reg_yoff = max([
-    for (reg = extra_reg)
-    is_num(reg) ? 0 : reg.y < 0 ? 0 : reg.y
-  ]);
-
   tol = 0.5;
   body_w = fan_body_w;
   fan_d = fan_hole_d;
   next = inter_fan_screw_spacing;
   screw_spacing = fan_screw_spacing;
 
-  extra = next + extra_reg_yoff;
-
   shx = screw_spacing/2;
   shy = screw_spacing/2;
 
-  plate_t = 5;
+  cx = plate_w/2 - 8*jig_wall;
 
   cut = 10;
 
   margin = 2*jig_wall;
 
-  length = body_w + margin + extra;
+  length = body_w + margin + next;
 
   diff()
-  cuboid([plate_w + margin, length, jig_wall + plate_t], chamfer=chamfer, edges="Y") {
+  cuboid([
+    plate_w + margin,
+    length,
+    jig_wall + plate_t,
+  ], chamfer=chamfer, edges="Y") {
+    left(jig_wall + $eps)
     attach(TOP, BOTTOM, overlap=plate_t)
     tag("remove")
-      cuboid([plate_w + 2*tol, length + 2*$eps, 2*plate_t], chamfer=chamfer, edges="Y");
+      cuboid([
+        plate_w + 2*tol + jig_wall + $eps,
+        length + 2*$eps,
+        2*plate_t
+      ], chamfer=chamfer, edges="Y");
 
     reg_moves = let (
       ny = shy + next,
     ) flatten([
+
+      // fan mount holes
       [
-        // fan mount holes
         for (y = [-shy, shy])
         for (x = [-shx, shx])
         [x, y, 0]
+      ],
+
+      // center alignment holes
+      [
+        [cx, 0, 0],
+        [-cx, 0, 0],
       ],
 
       // next fan registration holes
@@ -100,19 +104,9 @@ chamfer = 0.5;
         [ shx, ny, 0]
       ],
 
-      // extra fan registration holes
-      for (reg = extra_reg)
-      let (
-        rx = (is_num(reg) ? reg : reg.x)/2,
-        ry =  is_num(reg) ? 0   : reg.y,
-      ) [
-        [-rx, ny + ry, 0],
-        [ rx, ny + ry, 0]
-      ]
-
     ]);
 
-    fwd(extra/2)
+    fwd(next/2)
     tag("remove") {
       attach(BOTTOM, TOP, overlap=cut/2)
         cyl(d=fan_d + 2*tol, h=cut);
